@@ -1,0 +1,82 @@
+import crypto from "node:crypto";
+import { cookies } from "next/headers";
+
+import {
+  createSession,
+  deleteSession,
+  getSession,
+  getUserById,
+  type DbUser,
+} from "@/lib/db";
+import { shouldUseSecureCookies } from "@/lib/env";
+
+const SESSION_COOKIE = "promotion_simulator_session";
+const OAUTH_STATE_COOKIE = "promotion_simulator_oauth_state";
+const SESSION_DURATION_MS = 1000 * 60 * 60 * 24 * 30;
+
+export async function getCurrentUser(): Promise<DbUser | null> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(SESSION_COOKIE)?.value;
+
+  if (!token) {
+    return null;
+  }
+
+  const session = getSession(token);
+  if (!session) {
+    return null;
+  }
+
+  return getUserById(session.userId);
+}
+
+export async function startOAuthState() {
+  const value = crypto.randomBytes(24).toString("hex");
+  const cookieStore = await cookies();
+  const secure = shouldUseSecureCookies();
+
+  cookieStore.set(OAUTH_STATE_COOKIE, value, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure,
+    path: "/",
+    maxAge: 60 * 10,
+  });
+
+  return value;
+}
+
+export async function consumeOAuthState(expected: string) {
+  const cookieStore = await cookies();
+  const actual = cookieStore.get(OAUTH_STATE_COOKIE)?.value;
+  cookieStore.delete(OAUTH_STATE_COOKIE);
+
+  return actual === expected;
+}
+
+export async function createUserSession(userId: number) {
+  const cookieStore = await cookies();
+  const token = crypto.randomBytes(32).toString("hex");
+  const expiresAt = new Date(Date.now() + SESSION_DURATION_MS);
+  const secure = shouldUseSecureCookies();
+
+  createSession(userId, token, expiresAt);
+  cookieStore.set(SESSION_COOKIE, token, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure,
+    path: "/",
+    expires: expiresAt,
+  });
+}
+
+export async function clearUserSession() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(SESSION_COOKIE)?.value;
+
+  if (token) {
+    deleteSession(token);
+  }
+
+  cookieStore.delete(SESSION_COOKIE);
+}
