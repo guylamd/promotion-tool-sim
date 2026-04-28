@@ -1,0 +1,35 @@
+const DEFAULT_APP_URL = "http://localhost:3000";
+
+export function getAppUrl() {
+  return process.env.APP_URL?.trim() || DEFAULT_APP_URL;
+}
+
+export function getDataDir() {
+  return (
+    process.env.DATA_DIR?.trim() ||
+    process.env.RAILWAY_VOLUME_MOUNT_PATH?.trim() ||
+    ""
+  );
+}
+
+export function shouldUseSecureCookies() {
+  const appUrl = getAppUrl();
+  return appUrl.startsWith("https://");
+}
+
+export function getRequiredEnv(name: string) {
+  const value = process.env[name]?.trim();
+
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+
+  return value;
+}
+
+export function hasGoogleOAuthConfig() {
+  return Boolean(
+    process.env.GOOGLE_CLIENT_ID?.trim() &&
+      process.env.GOOGLE_CLIENT_SECRET?.trim(),
+  );
+}
