@@ -1,6 +1,7 @@
-import { connectSheetAction, refreshSheetAction } from "@/app/actions";
+import { cookies } from "next/headers";
+import { connectSheetAction, refreshSheetAction, toggleThemeAction } from "@/app/actions";
 import { getCurrentUser } from "@/lib/auth";
-import { hasGoogleOAuthConfig } from "@/lib/env";
+import { hasGoogleOAuthConfig, isDevPreviewEnabled } from "@/lib/env";
 import { listRecentSheets, saveRecentSheet } from "@/lib/db";
 import { buildPromotionModel, runSimulation, validatePromotionSheet, type DistributionEntry } from "@/lib/promotion";
 import { buildSpreadsheetUrl, extractSpreadsheetId, loadSpreadsheetSnapshot } from "@/lib/google";
@@ -11,9 +12,12 @@ type PageProps = {
 
 export default async function Page({ searchParams }: PageProps) {
   const params = await searchParams;
+  const cookieStore = await cookies();
+  const currentTheme = cookieStore.get("theme")?.value === "dark" ? "dark" : "light";
   const errorParam = readParam(params.error);
   const sheetParam = readParam(params.sheet);
   const currentUser = await getCurrentUser();
+  const devPreview = isDevPreviewEnabled();
   const oauthReady = hasGoogleOAuthConfig();
   const recentSheets = currentUser ? listRecentSheets(currentUser.id) : [];
 
@@ -56,89 +60,120 @@ export default async function Page({ searchParams }: PageProps) {
     }
   }
 
+  if (!currentUser && devPreview && !simulation) {
+    simulation = buildDevPreviewSimulation();
+  }
+
+  const rowsWithCumulativeCost = simulation?.result
+    ? simulation.result.rows.map((row, index, allRows) => {
+        const cumulativeCost = allRows
+          .slice(0, index + 1)
+          .reduce((sum, entry) => sum + entry.approximateDollarCost, 0);
+        return { ...row, cumulativeCost };
+      })
+    : [];
+
   return (
     <main className="shell">
-      <section className="hero">
-        <div className="heroCard">
-          <span className="eyebrow">Promotion Simulator</span>
-          <h1 className="heroTitle">Sheet-driven results, fast enough to iterate live.</h1>
-          <p className="heroCopy">
-            Connect a promotion sheet, validate the tabs and headers with forgiving
-            matching, and run deterministic or Monte Carlo results only when the
-            designer clicks refresh.
-          </p>
-          <div className="heroStats">
-            <div className="stat">
-              <span className="statLabel">Mode</span>
-              <strong className="statValue">Single promotion deep-dive</strong>
-            </div>
-            <div className="stat">
-              <span className="statLabel">Read model</span>
-              <strong className="statValue">User-scoped Google Sheets</strong>
-            </div>
-            <div className="stat">
-              <span className="statLabel">Refresh model</span>
-              <strong className="statValue">Manual recompute</strong>
-            </div>
-          </div>
+      <header className="appHeader">
+        <img className="appLogo" src="/whalo-logo.gif" alt="Whalo logo" />
+        <h1 className="appTitle">Promotion Tool Simulator</h1>
+        <div className="headerActions">
+          <form action={toggleThemeAction}>
+            <input type="hidden" name="currentTheme" value={currentTheme} />
+            <input type="hidden" name="returnTo" value={sheetParam ? `/?sheet=${encodeURIComponent(sheetParam)}` : "/"} />
+            <button className="ghostButton" type="submit">
+              {currentTheme === "dark" ? "Light mode" : "Dark mode"}
+            </button>
+          </form>
         </div>
+      </header>
 
-        <div className="heroSide">
-          <section className="panel">
-            <h2 className="panelTitle">Google access</h2>
-            {oauthReady ? (
-              currentUser ? (
-                <>
-                  <p className="panelCopy">
-                    Signed in as <strong>{currentUser.email}</strong>. Your recent sheets
-                    stay private to your own session.
-                  </p>
-                  <div className="actions">
-                    <span className="pill">Authenticated</span>
-                    <a className="ghostButton" href="/api/auth/logout">
-                      Sign out
-                    </a>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <p className="panelCopy">
-                    Sign in with Google so the app can read only the sheets you already
-                    have access to.
-                  </p>
-                  <div className="actions">
+      <div className="stack">
+        <section className="panel">
+          <h2 className="panelTitle">Google access</h2>
+          {oauthReady ? (
+            currentUser ? (
+              <>
+                <p className="panelCopy">
+                  Signed in as <strong>{currentUser.email}</strong>. Your recent sheets
+                  stay private to your own session.
+                </p>
+                <div className="actions">
+                  <span className="pill">Authenticated</span>
+                  <a className="ghostButton" href="/api/auth/logout">
+                    Sign out
+                  </a>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="panelCopy">
+                  Sign in with Google so the app can read only the sheets you already
+                  have access to.
+                </p>
+                <div className="actions">
+                  {devPreview ? (
+                    <span className="pill">Dev preview mode (OAuth bypass)</span>
+                  ) : (
                     <a className="button" href="/api/auth/login">
                       Sign in with Google
                     </a>
-                  </div>
-                </>
-              )
-            ) : (
-              <div className="callout calloutWarning">
-                Add <span className="mono">GOOGLE_CLIENT_ID</span>,{" "}
-                <span className="mono">GOOGLE_CLIENT_SECRET</span>, and{" "}
-                <span className="mono">APP_URL</span> to start Google sign-in.
-              </div>
-            )}
-          </section>
-
-          <section className="panel">
-            <h2 className="panelTitle">How the app reads sheets</h2>
-            <p className="panelCopy">
-              Tab and header matching is case-insensitive and space-tolerant. Names are
-              normalized before validation so designers do not get blocked by casing or
-              whitespace noise.
-            </p>
-            <div className="actions">
-              <span className="pill">Main Config</span>
-              <span className="pill">Bar Config</span>
-              <span className="pill">Resource &amp; Valuation</span>
+                  )}
+                </div>
+              </>
+            )
+          ) : (
+            <div className="callout calloutWarning">
+              Add <span className="mono">GOOGLE_CLIENT_ID</span>,{" "}
+              <span className="mono">GOOGLE_CLIENT_SECRET</span>, and{" "}
+              <span className="mono">APP_URL</span> to start Google sign-in.
             </div>
-          </section>
-        </div>
-      </section>
+          )}
+        </section>
 
-      <div className="stack">
+        <section className="panel">
+          <h2 className="panelTitle">Required sheet structure</h2>
+          <p className="panelCopy">
+            Tab and header matching is case-insensitive and space-tolerant. Names are
+            normalized before validation so designers do not get blocked by casing or
+            whitespace noise.
+          </p>
+          <details className="requirementsDetails">
+            <summary className="requirementsSummary">Required tabs and headers</summary>
+            <div className="requirementsGrid">
+              <div className="requirementItem">
+                <strong>Main Config</strong>
+                <span className="muted">Offer ID, Group, Close Group, Payment Type, Dollar Cost, Resource Cost, Bar Points, Limit, Weight, Reward 1, Reward 1 Amount</span>
+              </div>
+              <div className="requirementItem">
+                <strong>Groups Config</strong>
+                <span className="muted">Group, Limit</span>
+              </div>
+              <div className="requirementItem">
+                <strong>Extra Bundle Config</strong>
+                <span className="muted">Bundle ID, Bar Points, Limit, Reward 1, Reward 1 Amount</span>
+              </div>
+              <div className="requirementItem">
+                <strong>Bar Config</strong>
+                <span className="muted">Bar ID, Bar Points, Acc Points, Reward 1, Reward 1 Amount</span>
+              </div>
+              <div className="requirementItem">
+                <strong>Payment Types</strong>
+                <span className="muted">Payment Type</span>
+              </div>
+              <div className="requirementItem">
+                <strong>Price List</strong>
+                <span className="muted">Price, Total Value</span>
+              </div>
+              <div className="requirementItem">
+                <strong>Resource and Valuation</strong>
+                <span className="muted">Reward, Spins Value</span>
+              </div>
+            </div>
+          </details>
+        </section>
+
         {pageError ? <div className="callout calloutError">{pageError}</div> : null}
 
         <section className="panel">
@@ -164,7 +199,7 @@ export default async function Page({ searchParams }: PageProps) {
             </div>
           </form>
           {simulation ? (
-            <form action={refreshSheetAction}>
+            <form action={refreshSheetAction} className="refreshForm">
               <input type="hidden" name="sheetUrl" value={simulation.snapshotUrl} />
               <div className="actions">
                 <button className="secondaryButton" type="submit">
@@ -222,24 +257,28 @@ export default async function Page({ searchParams }: PageProps) {
                   </p>
                   <div className="summaryGrid">
                     <SummaryCard
-                      label="Compute time"
-                      value={`${simulation.result.durationMs.toFixed(1)} ms`}
-                      meta={simulation.result.weightedMode ? "Monte Carlo path" : "Exact path"}
+                      label="Total Spins Value (Direct Energy, no bar)"
+                      value={`${formatNumber(simulation.result.summary.totalDirectEnergySpinsWithoutBar)} spins`}
                     />
                     <SummaryCard
-                      label="Total VFM (no bar)"
-                      value={formatNumber(simulation.result.summary.totalVfmWithoutBar)}
-                      meta={`Slope ${formatRatio(simulation.result.summary.cumulativeSlopeWithoutBar)}`}
+                      label="Total Spins Value (All Rewards, no bar)"
+                      value={`${formatNumber(simulation.result.summary.totalVfmWithoutBar)} spins`}
                     />
                     <SummaryCard
-                      label="Total VFM (with bar)"
-                      value={formatNumber(simulation.result.summary.totalVfmWithBar)}
-                      meta={`Slope ${formatRatio(simulation.result.summary.cumulativeSlopeWithBar)}`}
+                      label="Total Spins Value (All Rewards, with bar)"
+                      value={`${formatNumber(simulation.result.summary.totalVfmWithBar)} spins`}
                     />
                     <SummaryCard
-                      label="Baseline spins cost"
-                      value={formatNumber(simulation.result.summary.totalBaselineSpinsCost)}
-                      meta={`~$${simulation.result.summary.totalApproximateDollarCost.toFixed(2)}`}
+                      label="Total Cost"
+                      value={`$${simulation.result.summary.totalApproximateDollarCost.toFixed(2)}`}
+                    />
+                    <SummaryCard
+                      label="Slope (no bar)"
+                      value={formatRatio(simulation.result.summary.cumulativeSlopeWithoutBar)}
+                    />
+                    <SummaryCard
+                      label="Slope (with bar)"
+                      value={formatRatio(simulation.result.summary.cumulativeSlopeWithBar)}
                     />
                     <SummaryCard
                       label="Main / Bundle / Bar"
@@ -255,7 +294,7 @@ export default async function Page({ searchParams }: PageProps) {
                     <p className="panelCopy">
                       Each row represents the state after that purchase index. Free follow-up
                       rewards are rolled back into the nearest preceding non-free offer for
-                      VFM and slope calculations.
+                      total spins value and slope calculations.
                     </p>
                   </div>
                   <div className="tableWrap">
@@ -266,11 +305,12 @@ export default async function Page({ searchParams }: PageProps) {
                           <th>Payment</th>
                           <th>Rollup</th>
                           <th>Cost</th>
+                          <th>Cumulative cost</th>
                           <th>Main</th>
                           <th>Bundle</th>
                           <th>Bar</th>
-                          <th>VFM no bar</th>
-                          <th>VFM with bar</th>
+                          <th>Total spins value direct</th>
+                          <th>Total spins value other</th>
                           <th>Slope no bar</th>
                           <th>Slope with bar</th>
                           <th>Cumulative no bar</th>
@@ -280,7 +320,7 @@ export default async function Page({ searchParams }: PageProps) {
                         </tr>
                       </thead>
                       <tbody>
-                        {simulation.result.rows.map((row) => (
+                        {rowsWithCumulativeCost.map((row) => (
                           <tr key={row.offerId}>
                             <td className="mono">{row.offerId}</td>
                             <td>{row.paymentType}</td>
@@ -292,14 +332,24 @@ export default async function Page({ searchParams }: PageProps) {
                               )}
                             </td>
                             <td>
-                              <div>{formatNumber(row.baselineSpinsCost)} spins</div>
-                              <div className="muted">~${row.approximateDollarCost.toFixed(2)}</div>
+                              ${row.approximateDollarCost.toFixed(2)}
                             </td>
+                            <td>${row.cumulativeCost.toFixed(2)}</td>
                             <td>{formatNumber(row.mainValue)}</td>
                             <td>{formatNumber(row.bundleValue)}</td>
                             <td>{formatNumber(row.barValue)}</td>
-                            <td>{formatNumber(row.attributedVfmWithoutBar)}</td>
-                            <td>{formatNumber(row.attributedVfmWithBar)}</td>
+                            <td>
+                              {formatNumber(
+                                row.directEnergyMainValue + row.directEnergyBundleValue,
+                              )}
+                            </td>
+                            <td>
+                              {formatNumber(
+                                row.attributedVfmWithoutBar -
+                                  (row.directEnergyMainValue +
+                                    row.directEnergyBundleValue),
+                              )}
+                            </td>
                             <td>{formatRatio(row.incrementalSlopeWithoutBar)}</td>
                             <td>{formatRatio(row.incrementalSlopeWithBar)}</td>
                             <td>{formatRatio(row.cumulativeSlopeWithoutBar)}</td>
@@ -330,6 +380,115 @@ export default async function Page({ searchParams }: PageProps) {
       </div>
     </main>
   );
+}
+
+function buildDevPreviewSimulation() {
+  return {
+    validation: {
+      issues: [],
+      blockingIssues: [],
+      resolvedTabs: {},
+    },
+    result: {
+      runCount: 1000,
+      weightedMode: true,
+      durationMs: 24.8,
+      snapshotHash: "devpreview",
+      rows: [
+        {
+          offerId: 1,
+          paymentType: "USD",
+          rollsIntoOfferId: null,
+          approximateDollarCost: 4.99,
+          baselineSpinsCost: 500,
+          mainValue: 1300,
+          bundleValue: 100,
+          barValue: 30,
+          directEnergyMainValue: 1100,
+          directEnergyBundleValue: 80,
+          directEnergyBarValue: 20,
+          attributedVfmWithoutBar: 1400,
+          attributedVfmWithBar: 1430,
+          incrementalSlopeWithoutBar: 2.8,
+          incrementalSlopeWithBar: 2.86,
+          cumulativeSlopeWithoutBar: 2.8,
+          cumulativeSlopeWithBar: 2.86,
+          averageBarMilestonesCompleted: 0.2,
+          rewardDistribution: {
+            main: [{ reward: "EnergySmall", averageAmount: 2 }],
+            bundle: [{ reward: "CoinsPack", averageAmount: 1 }],
+            bar: [{ reward: "EnergyMini", averageAmount: 1 }],
+          },
+        },
+        {
+          offerId: 2,
+          paymentType: "FREE",
+          rollsIntoOfferId: 1,
+          approximateDollarCost: 0,
+          baselineSpinsCost: 0,
+          mainValue: 650,
+          bundleValue: 40,
+          barValue: 20,
+          directEnergyMainValue: 520,
+          directEnergyBundleValue: 20,
+          directEnergyBarValue: 10,
+          attributedVfmWithoutBar: 0,
+          attributedVfmWithBar: 0,
+          incrementalSlopeWithoutBar: null,
+          incrementalSlopeWithBar: null,
+          cumulativeSlopeWithoutBar: 2.8,
+          cumulativeSlopeWithBar: 2.86,
+          averageBarMilestonesCompleted: 0.6,
+          rewardDistribution: {
+            main: [{ reward: "EnergySmall", averageAmount: 1 }],
+            bundle: [{ reward: "Puzzle_Pacing", averageAmount: 1 }],
+            bar: [{ reward: "CoinsPack", averageAmount: 0.5 }],
+          },
+        },
+        {
+          offerId: 3,
+          paymentType: "USD",
+          rollsIntoOfferId: null,
+          approximateDollarCost: 9.99,
+          baselineSpinsCost: 1100,
+          mainValue: 2000,
+          bundleValue: 160,
+          barValue: 90,
+          directEnergyMainValue: 1400,
+          directEnergyBundleValue: 60,
+          directEnergyBarValue: 50,
+          attributedVfmWithoutBar: 2160,
+          attributedVfmWithBar: 2250,
+          incrementalSlopeWithoutBar: 1.96,
+          incrementalSlopeWithBar: 2.05,
+          cumulativeSlopeWithoutBar: 2.11,
+          cumulativeSlopeWithBar: 2.18,
+          averageBarMilestonesCompleted: 1.8,
+          rewardDistribution: {
+            main: [{ reward: "EnergyLarge", averageAmount: 1 }],
+            bundle: [{ reward: "CoinsPack", averageAmount: 2 }],
+            bar: [{ reward: "EnergyMini", averageAmount: 2 }],
+          },
+        },
+      ],
+      summary: {
+        promotionTitle: "Dev Preview Promotion",
+        totalBaselineSpinsCost: 1600,
+        totalApproximateDollarCost: 14.98,
+        totalVfmWithoutBar: 3560,
+        totalVfmWithBar: 3680,
+        totalDirectEnergySpinsWithoutBar: 3180,
+        totalDirectEnergySpinsWithBar: 3240,
+        totalMainValue: 3950,
+        totalBundleValue: 300,
+        totalBarValue: 140,
+        cumulativeSlopeWithoutBar: 2.11,
+        cumulativeSlopeWithBar: 2.18,
+      },
+    },
+    snapshotTitle: "Dev Preview Promotion",
+    snapshotUrl: "https://docs.google.com/spreadsheets/d/dev-preview/edit",
+  };
 }
 
 function readParam(value: string | string[] | undefined) {

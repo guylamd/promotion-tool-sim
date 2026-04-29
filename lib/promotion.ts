@@ -114,6 +114,9 @@ export type OfferResultRow = {
   mainValue: number;
   bundleValue: number;
   barValue: number;
+  directEnergyMainValue: number;
+  directEnergyBundleValue: number;
+  directEnergyBarValue: number;
   attributedVfmWithoutBar: number;
   attributedVfmWithBar: number;
   incrementalSlopeWithoutBar: number | null;
@@ -140,6 +143,8 @@ export type SimulationResult = {
     totalApproximateDollarCost: number;
     totalVfmWithoutBar: number;
     totalVfmWithBar: number;
+    totalDirectEnergySpinsWithoutBar: number;
+    totalDirectEnergySpinsWithBar: number;
     totalMainValue: number;
     totalBundleValue: number;
     totalBarValue: number;
@@ -156,6 +161,9 @@ type StepResult = {
   mainValue: number;
   bundleValue: number;
   barValue: number;
+  directEnergyMainValue: number;
+  directEnergyBundleValue: number;
+  directEnergyBarValue: number;
   milestonesCompleted: number;
   rewards: {
     main: RewardSlot[];
@@ -172,6 +180,9 @@ type Aggregate = {
   mainValue: number;
   bundleValue: number;
   barValue: number;
+  directEnergyMainValue: number;
+  directEnergyBundleValue: number;
+  directEnergyBarValue: number;
   milestonesCompleted: number;
   mainDistribution: Map<string, number>;
   bundleDistribution: Map<string, number>;
@@ -450,6 +461,9 @@ export function runSimulation(model: PromotionModel): SimulationResult {
     mainValue: 0,
     bundleValue: 0,
     barValue: 0,
+    directEnergyMainValue: 0,
+    directEnergyBundleValue: 0,
+    directEnergyBarValue: 0,
     milestonesCompleted: 0,
     mainDistribution: new Map(),
     bundleDistribution: new Map(),
@@ -467,6 +481,14 @@ export function runSimulation(model: PromotionModel): SimulationResult {
   const totalApproximateDollarCost = rows.reduce((sum, row) => sum + row.approximateDollarCost, 0);
   const totalVfmWithoutBar = rows.reduce((sum, row) => sum + row.attributedVfmWithoutBar, 0);
   const totalVfmWithBar = rows.reduce((sum, row) => sum + row.attributedVfmWithBar, 0);
+  const totalDirectEnergySpinsWithoutBar = rows.reduce(
+    (sum, row) => sum + row.directEnergyMainValue + row.directEnergyBundleValue,
+    0,
+  );
+  const totalDirectEnergySpinsWithBar = rows.reduce(
+    (sum, row) => sum + row.directEnergyMainValue + row.directEnergyBundleValue + row.directEnergyBarValue,
+    0,
+  );
   const totalMainValue = rows.reduce((sum, row) => sum + row.mainValue, 0);
   const totalBundleValue = rows.reduce((sum, row) => sum + row.bundleValue, 0);
   const totalBarValue = rows.reduce((sum, row) => sum + row.barValue, 0);
@@ -483,6 +505,8 @@ export function runSimulation(model: PromotionModel): SimulationResult {
       totalApproximateDollarCost,
       totalVfmWithoutBar,
       totalVfmWithBar,
+      totalDirectEnergySpinsWithoutBar,
+      totalDirectEnergySpinsWithBar,
       totalMainValue,
       totalBundleValue,
       totalBarValue,
@@ -532,18 +556,23 @@ function simulateJourney(model: PromotionModel, rng: (() => number) | null) {
     }
 
     const cost = resolveCost(purchaseRow, model);
+    const selectedMainRewards = selected.rewards;
+    const bundleRewards = bundle?.rewards ?? [];
     steps.push({
       offerId: purchaseRow.offerId,
       paymentType: purchaseRow.paymentType,
       baselineSpinsCost: cost.baselineSpinsCost,
       approximateDollarCost: cost.approximateDollarCost,
-      mainValue: rewardValue(selected.rewards, model.rewardValues),
-      bundleValue: rewardValue(bundle?.rewards ?? [], model.rewardValues),
+      mainValue: rewardValue(selectedMainRewards, model.rewardValues),
+      bundleValue: rewardValue(bundleRewards, model.rewardValues),
       barValue: rewardValue(newBarRewards, model.rewardValues),
+      directEnergyMainValue: rewardDirectEnergyValue(selectedMainRewards, model.rewardValues),
+      directEnergyBundleValue: rewardDirectEnergyValue(bundleRewards, model.rewardValues),
+      directEnergyBarValue: rewardDirectEnergyValue(newBarRewards, model.rewardValues),
       milestonesCompleted: awardedBars.size,
       rewards: {
-        main: selected.rewards,
-        bundle: bundle?.rewards ?? [],
+        main: selectedMainRewards,
+        bundle: bundleRewards,
         bar: newBarRewards,
       },
     });
@@ -661,6 +690,9 @@ function finalizeRows(model: PromotionModel, aggregates: Aggregate[], runCount: 
     mainValue: aggregate.mainValue / runCount,
     bundleValue: aggregate.bundleValue / runCount,
     barValue: aggregate.barValue / runCount,
+    directEnergyMainValue: aggregate.directEnergyMainValue / runCount,
+    directEnergyBundleValue: aggregate.directEnergyBundleValue / runCount,
+    directEnergyBarValue: aggregate.directEnergyBarValue / runCount,
     milestonesCompleted: aggregate.milestonesCompleted / runCount,
     rewardDistribution: {
       main: distributionEntries(aggregate.mainDistribution, runCount),
@@ -704,6 +736,9 @@ function finalizeRows(model: PromotionModel, aggregates: Aggregate[], runCount: 
       mainValue: step.mainValue,
       bundleValue: step.bundleValue,
       barValue: step.barValue,
+      directEnergyMainValue: step.directEnergyMainValue,
+      directEnergyBundleValue: step.directEnergyBundleValue,
+      directEnergyBarValue: step.directEnergyBarValue,
       attributedVfmWithoutBar: attributedWithoutBar[index],
       attributedVfmWithBar: attributedWithBar[index],
       incrementalSlopeWithoutBar: step.baselineSpinsCost > 0 ? attributedWithoutBar[index] / step.baselineSpinsCost : null,
@@ -730,6 +765,9 @@ function accumulateJourney(aggregates: Aggregate[], steps: StepResult[]) {
     aggregate.mainValue += step.mainValue;
     aggregate.bundleValue += step.bundleValue;
     aggregate.barValue += step.barValue;
+    aggregate.directEnergyMainValue += step.directEnergyMainValue;
+    aggregate.directEnergyBundleValue += step.directEnergyBundleValue;
+    aggregate.directEnergyBarValue += step.directEnergyBarValue;
     aggregate.milestonesCompleted += step.milestonesCompleted;
     addRewards(aggregate.mainDistribution, step.rewards.main);
     addRewards(aggregate.bundleDistribution, step.rewards.bundle);
@@ -946,6 +984,24 @@ function rewardValue(
     const spinsValue = values.get(normalizeName(reward.reward))?.spinsValue ?? 0;
     return sum + spinsValue * reward.amount;
   }, 0);
+}
+
+function rewardDirectEnergyValue(
+  rewards: RewardSlot[],
+  values: Map<string, { name: string; spinsValue: number }>,
+) {
+  return rewards.reduce((sum, reward) => {
+    const normalized = normalizeName(reward.reward);
+    if (!isDirectEnergyReward(normalized)) {
+      return sum;
+    }
+    const spinsValue = values.get(normalized)?.spinsValue ?? 0;
+    return sum + spinsValue * reward.amount;
+  }, 0);
+}
+
+function isDirectEnergyReward(normalizedRewardName: string) {
+  return normalizedRewardName.includes("energy");
 }
 
 function nearestPricePoint(points: PricePoint[], target: number, by: "price" | "value") {

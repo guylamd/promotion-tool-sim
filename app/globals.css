@@ -1,17 +1,17 @@
 :root {
-  --bg: #f4f1ea;
-  --card: rgba(255, 252, 247, 0.86);
-  --card-strong: #fffaf1;
-  --text: #19202b;
-  --muted: #5b6574;
-  --line: rgba(25, 32, 43, 0.12);
-  --accent: #115e59;
-  --accent-soft: rgba(17, 94, 89, 0.08);
+  --bg: #e6ecff;
+  --card: rgba(244, 247, 255, 0.92);
+  --card-strong: #ffffff;
+  --text: #101736;
+  --muted: #4f5d86;
+  --line: rgba(16, 23, 54, 0.14);
+  --accent: #243fd6;
+  --accent-soft: rgba(36, 63, 214, 0.12);
   --warn: #b45309;
-  --warn-soft: rgba(180, 83, 9, 0.1);
-  --error: #b91c1c;
-  --error-soft: rgba(185, 28, 28, 0.08);
-  --shadow: 0 24px 60px rgba(25, 32, 43, 0.12);
+  --warn-soft: rgba(180, 83, 9, 0.12);
+  --error: #be123c;
+  --error-soft: rgba(190, 18, 60, 0.1);
+  --shadow: 0 22px 56px rgba(13, 25, 82, 0.2);
   --radius: 22px;
 }
 
@@ -21,9 +21,9 @@
 
 html {
   background:
-    radial-gradient(circle at top left, rgba(17, 94, 89, 0.18), transparent 32%),
-    radial-gradient(circle at bottom right, rgba(191, 219, 254, 0.36), transparent 24%),
-    linear-gradient(135deg, #f4f1ea 0%, #eef7f4 100%);
+    radial-gradient(circle at top left, rgba(36, 63, 214, 0.28), transparent 34%),
+    radial-gradient(circle at bottom right, rgba(58, 94, 237, 0.22), transparent 28%),
+    linear-gradient(135deg, #e6ecff 0%, #f2f5ff 100%);
   min-height: 100%;
 }
 
@@ -52,6 +52,35 @@ input {
   max-width: 1440px;
   margin: 0 auto;
   padding: 32px 20px 64px;
+}
+
+.appHeader {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+  padding: 14px 18px;
+  border-radius: 18px;
+  background: var(--card);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  box-shadow: var(--shadow);
+}
+
+.appLogo {
+  height: 42px;
+  width: auto;
+  display: block;
+}
+
+.appTitle {
+  margin: 0;
+  font-size: clamp(1.3rem, 2.2vw, 2rem);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.headerActions {
+  margin-left: auto;
 }
 
 .hero {
@@ -174,6 +203,10 @@ input {
   gap: 12px;
 }
 
+.refreshForm {
+  margin-top: 14px;
+}
+
 .input {
   width: 100%;
   padding: 14px 16px;
@@ -188,6 +221,45 @@ input {
   flex-wrap: wrap;
   gap: 12px;
   align-items: center;
+}
+
+.requirementsGrid {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.requirementsDetails {
+  margin-top: 8px;
+}
+
+.requirementsSummary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.requirementsSummary::before {
+  content: "▸";
+  font-size: 0.8rem;
+  transition: transform 160ms ease;
+}
+
+.requirementsDetails[open] .requirementsSummary::before {
+  transform: rotate(90deg);
+}
+
+.requirementItem {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--card-strong);
 }
 
 .button,
@@ -219,7 +291,7 @@ input {
 }
 
 .secondaryButton {
-  background: rgba(17, 94, 89, 0.1);
+  background: var(--accent-soft);
   color: var(--accent);
 }
 
@@ -263,7 +335,7 @@ input {
   padding: 18px;
   border-radius: 18px;
   background: var(--card-strong);
-  border: 1px solid rgba(17, 94, 89, 0.08);
+  border: 1px solid rgba(36, 63, 214, 0.1);
 }
 
 .summaryLabel {
@@ -314,7 +386,8 @@ input {
 .resultsTable th {
   position: sticky;
   top: 0;
-  background: rgba(255, 250, 241, 0.96);
+  z-index: 3;
+  background: var(--card);
   font-size: 0.82rem;
   color: var(--muted);
   letter-spacing: 0.02em;
@@ -332,7 +405,7 @@ input {
   gap: 6px;
   padding: 6px 10px;
   border-radius: 999px;
-  background: rgba(17, 94, 89, 0.09);
+  background: var(--accent-soft);
   color: var(--accent);
   font-size: 0.78rem;
   font-weight: 700;
@@ -411,8 +484,81 @@ input {
 .distSection {
   border-radius: 14px;
   padding: 10px 12px;
-  background: rgba(17, 94, 89, 0.05);
+  background: rgba(36, 63, 214, 0.08);
 }
+
+html[data-theme="dark"],
+html.theme-dark {
+  --bg: #070d2b;
+  --card: rgba(10, 18, 54, 0.82);
+  --card-strong: #0f1a4f;
+  --text: #e9eeff;
+  --muted: #a5b2e2;
+  --line: rgba(170, 188, 255, 0.2);
+  --accent: #6f89ff;
+  --accent-soft: rgba(111, 137, 255, 0.18);
+  --warn: #f59e0b;
+  --warn-soft: rgba(245, 158, 11, 0.2);
+  --error: #fb7185;
+  --error-soft: rgba(251, 113, 133, 0.18);
+  --shadow: 0 26px 66px rgba(0, 0, 0, 0.45);
+}
+
+html[data-theme="dark"],
+html.theme-dark {
+  background:
+    radial-gradient(circle at top left, rgba(64, 93, 255, 0.34), transparent 36%),
+    radial-gradient(circle at bottom right, rgba(40, 62, 183, 0.3), transparent 30%),
+    linear-gradient(135deg, #070d2b 0%, #0a1450 100%);
+}
+
+html[data-theme="dark"] .appHeader,
+html.theme-dark .appHeader,
+html[data-theme="dark"] .panel,
+html.theme-dark .panel,
+html[data-theme="dark"] .tableCard,
+html.theme-dark .tableCard,
+html[data-theme="dark"] .summaryCard,
+html.theme-dark .summaryCard,
+html[data-theme="dark"] .recentItem,
+html.theme-dark .recentItem,
+html[data-theme="dark"] .issue,
+html.theme-dark .issue,
+html[data-theme="dark"] .distSection,
+html.theme-dark .distSection,
+html[data-theme="dark"] .stat,
+html.theme-dark .stat {
+  border-color: rgba(170, 188, 255, 0.18);
+}
+
+html[data-theme="dark"] .input,
+html.theme-dark .input {
+  background: rgba(12, 22, 66, 0.86);
+  color: var(--text);
+  border-color: var(--line);
+}
+
+html[data-theme="dark"] .ghostButton,
+html.theme-dark .ghostButton {
+  color: var(--text);
+  border-color: var(--line);
+  background: rgba(18, 31, 88, 0.45);
+}
+
+html[data-theme="dark"] .resultsTable th,
+html.theme-dark .resultsTable th,
+html[data-theme="dark"] .resultsTable td,
+html.theme-dark .resultsTable td,
+html[data-theme="dark"] .tableHead,
+html.theme-dark .tableHead {
+  border-color: rgba(170, 188, 255, 0.16);
+}
+
+html[data-theme="dark"] .resultsTable th,
+html.theme-dark .resultsTable th {
+  background: var(--card);
+}
+
 
 .distTitle {
   margin: 0 0 6px;

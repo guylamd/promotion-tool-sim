@@ -34,3 +34,8 @@ export function hasGoogleOAuthConfig() {
       process.env.GOOGLE_CLIENT_SECRET?.trim(),
   );
 }
+
+export function isDevPreviewEnabled() {
+  const value = process.env.DEV_PREVIEW?.trim().toLowerCase();
+  return value === "1" || value === "true" || value === "yes";
+}
