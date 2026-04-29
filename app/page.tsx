@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 import { connectSheetAction, refreshSheetAction } from "@/app/actions";
 import { getCurrentUser } from "@/lib/auth";
 import { hasGoogleOAuthConfig } from "@/lib/env";
@@ -97,9 +95,9 @@ export default async function Page({ searchParams }: PageProps) {
                   </p>
                   <div className="actions">
                     <span className="pill">Authenticated</span>
-                    <Link className="ghostButton" href="/api/auth/logout">
+                    <a className="ghostButton" href="/api/auth/logout">
                       Sign out
-                    </Link>
+                    </a>
                   </div>
                 </>
               ) : (
@@ -109,9 +107,9 @@ export default async function Page({ searchParams }: PageProps) {
                     have access to.
                   </p>
                   <div className="actions">
-                    <Link className="button" href="/api/auth/login">
+                    <a className="button" href="/api/auth/login">
                       Sign in with Google
-                    </Link>
+                    </a>
                   </div>
                 </>
               )
