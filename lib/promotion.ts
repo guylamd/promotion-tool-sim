@@ -29,6 +29,7 @@ type ResolvedTab = {
   label: string;
   actualTitle: string;
   rows: string[][];
+  rawHeaderIndex: Record<string, number>;
   headerIndex: Record<string, number>;
 };
 
@@ -280,6 +281,7 @@ export function validatePromotionSheet(snapshot: SpreadsheetSnapshot): Validatio
       label: tab.label,
       actualTitle: resolved.actualTitle,
       rows: resolved.rows,
+      rawHeaderIndex: headerIndex,
       headerIndex: {},
     };
 
@@ -894,7 +896,7 @@ function parseBarRows(tab: ResolvedTab, issues: ValidationIssue[]) {
 function parseRewards(tab: ResolvedTab, row: string[], slots: number) {
   const rewards: RewardSlot[] = [];
   for (let slot = 1; slot <= slots; slot += 1) {
-    const rewardIndex = resolveHeader(tab.headerIndex, [`Reward ${slot}`]);
+    const rewardIndex = resolveHeader(tab.rawHeaderIndex, [`Reward ${slot}`]);
     if (rewardIndex === undefined) {
       continue;
     }
@@ -902,7 +904,7 @@ function parseRewards(tab: ResolvedTab, row: string[], slots: number) {
     if (!reward) {
       continue;
     }
-    const amountIndex = resolveHeader(tab.headerIndex, [`Reward ${slot} Amount`]);
+    const amountIndex = resolveHeader(tab.rawHeaderIndex, [`Reward ${slot} Amount`]);
     rewards.push({
       reward,
       amount: numberValue(amountIndex === undefined ? "" : row[amountIndex]) ?? 1,
