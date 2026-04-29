@@ -578,7 +578,7 @@ function simulateJourney(model: PromotionModel, rng: (() => number) | null) {
     const bundleRewards = bundle?.rewards ?? [];
     steps.push({
       offerId: purchaseRow.offerId,
-      rewardIndex: purchaseRow.rewardIndex,
+      rewardIndex: selected.rewardIndex,
       paymentType: purchaseRow.paymentType,
       baselineSpinsCost: cost.baselineSpinsCost,
       approximateDollarCost: cost.approximateDollarCost,
