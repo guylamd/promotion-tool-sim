@@ -3,7 +3,7 @@ import { connectSheetAction, refreshSheetAction, toggleThemeAction } from "@/app
 import { getCurrentUser } from "@/lib/auth";
 import { hasGoogleOAuthConfig, isDevPreviewEnabled } from "@/lib/env";
 import { listRecentSheets, saveRecentSheet } from "@/lib/db";
-import { buildPromotionModel, runSimulation, validatePromotionSheet, type DistributionEntry } from "@/lib/promotion";
+import { buildPromotionModel, runSimulation, validatePromotionSheet } from "@/lib/promotion";
 import { buildSpreadsheetUrl, extractSpreadsheetId, loadSpreadsheetSnapshot } from "@/lib/google";
 
 type PageProps = {
@@ -144,7 +144,7 @@ export default async function Page({ searchParams }: PageProps) {
             <div className="requirementsGrid">
               <div className="requirementItem">
                 <strong>Main Config</strong>
-                <span className="muted">Offer ID, Group, Close Group, Payment Type, Dollar Cost, Resource Cost, Bar Points, Limit, Weight, Reward 1, Reward 1 Amount</span>
+                <span className="muted">Offer ID, Group, Close Group, Payment Type, Dollar Cost, Resource Cost, Bar Points, Limit, Weight, Reward Index, Reward 1, Reward 1 Amount</span>
               </div>
               <div className="requirementItem">
                 <strong>Groups Config</strong>
@@ -316,7 +316,6 @@ export default async function Page({ searchParams }: PageProps) {
                           <th>Cumulative no bar</th>
                           <th>Cumulative with bar</th>
                           <th>Avg milestones</th>
-                          <th>Reward distribution</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -355,9 +354,39 @@ export default async function Page({ searchParams }: PageProps) {
                             <td>{formatRatio(row.cumulativeSlopeWithoutBar)}</td>
                             <td>{formatRatio(row.cumulativeSlopeWithBar)}</td>
                             <td>{row.averageBarMilestonesCompleted.toFixed(2)}</td>
-                            <td>
-                              <RewardDistribution rewardDistribution={row.rewardDistribution} />
-                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+
+                <section className="tableCard">
+                  <div className="tableHead">
+                    <h2 className="panelTitle">Rewards Distribution per Offer ID</h2>
+                    <p className="panelCopy">
+                      Distribution of selected main-config reward index per offer ID.
+                    </p>
+                  </div>
+                  <div className="tableWrap">
+                    <table className="resultsTable">
+                      <thead>
+                        <tr>
+                          <th>Offer ID</th>
+                          {simulation.result.rewardIndexDistribution.columns.map((column) => (
+                            <th key={column.key}>{column.label}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {simulation.result.rewardIndexDistribution.rows.map((row) => (
+                          <tr key={`reward-distribution-${row.offerId}`}>
+                            <td className="mono">{row.offerId}</td>
+                            {simulation.result.rewardIndexDistribution.columns.map((column) => (
+                              <td key={`${row.offerId}-${column.key}`}>
+                                {formatPercent(row.values[column.key] ?? 0)}
+                              </td>
+                            ))}
                           </tr>
                         ))}
                       </tbody>
@@ -471,6 +500,39 @@ function buildDevPreviewSimulation() {
           },
         },
       ],
+      rewardIndexDistribution: {
+        columns: [
+          { key: "Reward Index 1", label: "Reward Index 1 (EnergySmall x 2 + CoinsPack x 1)" },
+          { key: "Reward Index 2", label: "Reward Index 2 (EnergySmall x 1 + Puzzle_Pacing x 1)" },
+          { key: "Reward Index 3", label: "Reward Index 3 (EnergyLarge x 1 + CoinsPack x 2)" },
+        ],
+        rows: [
+          {
+            offerId: 1,
+            values: {
+              "Reward Index 1": 0.6,
+              "Reward Index 2": 0.3,
+              "Reward Index 3": 0.1,
+            },
+          },
+          {
+            offerId: 2,
+            values: {
+              "Reward Index 1": 0.5,
+              "Reward Index 2": 0.4,
+              "Reward Index 3": 0.1,
+            },
+          },
+          {
+            offerId: 3,
+            values: {
+              "Reward Index 1": 0.4,
+              "Reward Index 2": 0.4,
+              "Reward Index 3": 0.2,
+            },
+          },
+        ],
+      },
       summary: {
         promotionTitle: "Dev Preview Promotion",
         totalBaselineSpinsCost: 1600,
@@ -541,52 +603,14 @@ function ValidationIssues({
   );
 }
 
-function RewardDistribution({
-  rewardDistribution,
-}: {
-  rewardDistribution: {
-    main: DistributionEntry[];
-    bundle: DistributionEntry[];
-    bar: DistributionEntry[];
-  };
-}) {
-  return (
-    <div className="distList">
-      <DistributionSection title="Main" entries={rewardDistribution.main} />
-      <DistributionSection title="Bundle" entries={rewardDistribution.bundle} />
-      <DistributionSection title="Bar" entries={rewardDistribution.bar} />
-    </div>
-  );
-}
-
-function DistributionSection({
-  title,
-  entries,
-}: {
-  title: string;
-  entries: DistributionEntry[];
-}) {
-  return (
-    <div className="distSection">
-      <p className="distTitle">{title}</p>
-      {entries.length > 0 ? (
-        entries.map((entry) => (
-          <div className="distEntry" key={`${title}-${entry.reward}`}>
-            <span>{entry.reward}</span>
-            <span>{entry.averageAmount.toFixed(2)}</span>
-          </div>
-        ))
-      ) : (
-        <div className="muted">None</div>
-      )}
-    </div>
-  );
-}
-
 function formatNumber(value: number) {
   return new Intl.NumberFormat("en-US", {
     maximumFractionDigits: value >= 100 ? 0 : 2,
   }).format(value);
+}
+
+function formatPercent(value: number) {
+  return `${(value * 100).toFixed(2)}%`;
 }
 
 function formatRatio(value: number | null) {

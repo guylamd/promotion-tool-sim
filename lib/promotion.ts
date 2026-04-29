@@ -46,6 +46,8 @@ export type RewardSlot = {
 
 type MainRow = {
   offerId: number;
+  rewardIndex: string;
+  rewardIndexLabel: string;
   paymentType: string;
   paymentTypeKey: string;
   group: number | null;
@@ -137,6 +139,10 @@ export type SimulationResult = {
   durationMs: number;
   snapshotHash: string;
   rows: OfferResultRow[];
+  rewardIndexDistribution: {
+    columns: { key: string; label: string }[];
+    rows: { offerId: number; values: Record<string, number> }[];
+  };
   summary: {
     promotionTitle: string;
     totalBaselineSpinsCost: number;
@@ -155,6 +161,7 @@ export type SimulationResult = {
 
 type StepResult = {
   offerId: number;
+  rewardIndex: string;
   paymentType: string;
   baselineSpinsCost: number;
   approximateDollarCost: number;
@@ -187,6 +194,7 @@ type Aggregate = {
   mainDistribution: Map<string, number>;
   bundleDistribution: Map<string, number>;
   barDistribution: Map<string, number>;
+  rewardIndexSelection: Map<string, number>;
 };
 
 const REQUIRED_TABS: TabDefinition[] = [
@@ -203,6 +211,7 @@ const REQUIRED_TABS: TabDefinition[] = [
       { key: "barPoints", labels: ["Bar Points"] },
       { key: "limit", labels: ["Limit"] },
       { key: "weight", labels: ["Weight"] },
+      { key: "rewardIndex", labels: ["Reward Index"] },
       { key: "reward1", labels: ["Reward 1"] },
       { key: "reward1Amount", labels: ["Reward 1 Amount"] },
     ],
@@ -468,6 +477,7 @@ export function runSimulation(model: PromotionModel): SimulationResult {
     mainDistribution: new Map(),
     bundleDistribution: new Map(),
     barDistribution: new Map(),
+    rewardIndexSelection: new Map(),
   }));
 
   const rng = model.weightedMode ? mulberry32(seedFromHash(model.snapshotHash)) : null;
@@ -481,6 +491,10 @@ export function runSimulation(model: PromotionModel): SimulationResult {
   const totalApproximateDollarCost = rows.reduce((sum, row) => sum + row.approximateDollarCost, 0);
   const totalVfmWithoutBar = rows.reduce((sum, row) => sum + row.attributedVfmWithoutBar, 0);
   const totalVfmWithBar = rows.reduce((sum, row) => sum + row.attributedVfmWithBar, 0);
+  const totalCostBaselinePoint =
+    totalApproximateDollarCost > 0
+      ? nearestPricePoint(model.pricePoints, totalApproximateDollarCost, "price")?.totalValue ?? 0
+      : 0;
   const totalDirectEnergySpinsWithoutBar = rows.reduce(
     (sum, row) => sum + row.directEnergyMainValue + row.directEnergyBundleValue,
     0,
@@ -492,6 +506,7 @@ export function runSimulation(model: PromotionModel): SimulationResult {
   const totalMainValue = rows.reduce((sum, row) => sum + row.mainValue, 0);
   const totalBundleValue = rows.reduce((sum, row) => sum + row.bundleValue, 0);
   const totalBarValue = rows.reduce((sum, row) => sum + row.barValue, 0);
+  const rewardIndexDistribution = buildRewardIndexDistribution(model, aggregates, runCount);
 
   return {
     runCount,
@@ -499,6 +514,7 @@ export function runSimulation(model: PromotionModel): SimulationResult {
     durationMs: performance.now() - start,
     snapshotHash: model.snapshotHash,
     rows,
+    rewardIndexDistribution,
     summary: {
       promotionTitle: model.spreadsheetTitle,
       totalBaselineSpinsCost,
@@ -510,8 +526,10 @@ export function runSimulation(model: PromotionModel): SimulationResult {
       totalMainValue,
       totalBundleValue,
       totalBarValue,
-      cumulativeSlopeWithoutBar: totalBaselineSpinsCost > 0 ? totalVfmWithoutBar / totalBaselineSpinsCost : null,
-      cumulativeSlopeWithBar: totalBaselineSpinsCost > 0 ? totalVfmWithBar / totalBaselineSpinsCost : null,
+      cumulativeSlopeWithoutBar:
+        totalCostBaselinePoint > 0 ? totalVfmWithoutBar / totalCostBaselinePoint : null,
+      cumulativeSlopeWithBar:
+        totalCostBaselinePoint > 0 ? totalVfmWithBar / totalCostBaselinePoint : null,
     },
   };
 }
@@ -560,6 +578,7 @@ function simulateJourney(model: PromotionModel, rng: (() => number) | null) {
     const bundleRewards = bundle?.rewards ?? [];
     steps.push({
       offerId: purchaseRow.offerId,
+      rewardIndex: purchaseRow.rewardIndex,
       paymentType: purchaseRow.paymentType,
       baselineSpinsCost: cost.baselineSpinsCost,
       approximateDollarCost: cost.approximateDollarCost,
@@ -722,9 +741,17 @@ function finalizeRows(model: PromotionModel, aggregates: Aggregate[], runCount: 
 
   for (let index = 0; index < averages.length; index += 1) {
     const step = averages[index];
-    cumulativeCost += step.baselineSpinsCost;
+    cumulativeCost += step.approximateDollarCost;
     cumulativeNoBar += attributedWithoutBar[index];
     cumulativeWithBar += attributedWithBar[index];
+    const cumulativeBaselinePoint =
+      cumulativeCost > 0
+        ? nearestPricePoint(model.pricePoints, cumulativeCost, "price")?.totalValue ?? 0
+        : 0;
+    const incrementalBaselinePoint =
+      step.approximateDollarCost > 0
+        ? nearestPricePoint(model.pricePoints, step.approximateDollarCost, "price")?.totalValue ?? 0
+        : 0;
 
     const anchorId = model.anchorOfferByOfferId.get(step.offerId) ?? step.offerId;
     rows.push({
@@ -741,10 +768,18 @@ function finalizeRows(model: PromotionModel, aggregates: Aggregate[], runCount: 
       directEnergyBarValue: step.directEnergyBarValue,
       attributedVfmWithoutBar: attributedWithoutBar[index],
       attributedVfmWithBar: attributedWithBar[index],
-      incrementalSlopeWithoutBar: step.baselineSpinsCost > 0 ? attributedWithoutBar[index] / step.baselineSpinsCost : null,
-      incrementalSlopeWithBar: step.baselineSpinsCost > 0 ? attributedWithBar[index] / step.baselineSpinsCost : null,
-      cumulativeSlopeWithoutBar: cumulativeCost > 0 ? cumulativeNoBar / cumulativeCost : null,
-      cumulativeSlopeWithBar: cumulativeCost > 0 ? cumulativeWithBar / cumulativeCost : null,
+      incrementalSlopeWithoutBar:
+        incrementalBaselinePoint > 0
+          ? attributedWithoutBar[index] / incrementalBaselinePoint
+          : null,
+      incrementalSlopeWithBar:
+        incrementalBaselinePoint > 0
+          ? attributedWithBar[index] / incrementalBaselinePoint
+          : null,
+      cumulativeSlopeWithoutBar:
+        cumulativeBaselinePoint > 0 ? cumulativeNoBar / cumulativeBaselinePoint : null,
+      cumulativeSlopeWithBar:
+        cumulativeBaselinePoint > 0 ? cumulativeWithBar / cumulativeBaselinePoint : null,
       averageBarMilestonesCompleted: step.milestonesCompleted,
       rewardDistribution: step.rewardDistribution,
     });
@@ -769,6 +804,10 @@ function accumulateJourney(aggregates: Aggregate[], steps: StepResult[]) {
     aggregate.directEnergyBundleValue += step.directEnergyBundleValue;
     aggregate.directEnergyBarValue += step.directEnergyBarValue;
     aggregate.milestonesCompleted += step.milestonesCompleted;
+    aggregate.rewardIndexSelection.set(
+      step.rewardIndex,
+      (aggregate.rewardIndexSelection.get(step.rewardIndex) ?? 0) + 1,
+    );
     addRewards(aggregate.mainDistribution, step.rewards.main);
     addRewards(aggregate.bundleDistribution, step.rewards.bundle);
     addRewards(aggregate.barDistribution, step.rewards.bar);
@@ -785,6 +824,39 @@ function distributionEntries(map: Map<string, number>, runCount: number) {
   return [...map.entries()]
     .map(([reward, total]) => ({ reward, averageAmount: total / runCount }))
     .sort((left, right) => right.averageAmount - left.averageAmount || left.reward.localeCompare(right.reward));
+}
+
+function buildRewardIndexDistribution(
+  model: PromotionModel,
+  aggregates: Aggregate[],
+  runCount: number,
+) {
+  const seen = new Set<string>();
+  const columns: { key: string; label: string }[] = [];
+  for (const row of model.mainRows) {
+    if (seen.has(row.rewardIndex)) {
+      continue;
+    }
+    seen.add(row.rewardIndex);
+    columns.push({
+      key: row.rewardIndex,
+      label: row.rewardIndexLabel,
+    });
+  }
+
+  const rows = aggregates.map((aggregate) => {
+    const values: Record<string, number> = {};
+    for (const column of columns) {
+      const picks = aggregate.rewardIndexSelection.get(column.key) ?? 0;
+      values[column.key] = picks / runCount;
+    }
+    return {
+      offerId: aggregate.offerId,
+      values,
+    };
+  });
+
+  return { columns, rows };
 }
 
 function parsePaymentTypes(tab: ResolvedTab) {
@@ -866,8 +938,15 @@ function parseMainRows(tab: ResolvedTab, issues: ValidationIssue[]) {
       issues.push(configError(tab.label, `row ${index + 1}`, "Each populated Main Config row needs an Offer ID."));
       continue;
     }
+    const rewards = parseRewards(tab, row, 10);
+    const rewardIndexRaw = clean(row[tab.headerIndex.rewardIndex]);
     rows.push({
       offerId,
+      rewardIndex: rewardIndexRaw || `offer_${offerId}`,
+      rewardIndexLabel: buildRewardIndexLabel(
+        rewardIndexRaw || `Offer ${offerId}`,
+        rewards,
+      ),
       paymentType,
       paymentTypeKey: normalizeName(paymentType),
       group: numberValue(row[tab.headerIndex.group]),
@@ -877,7 +956,7 @@ function parseMainRows(tab: ResolvedTab, issues: ValidationIssue[]) {
       barPoints: numberValue(row[tab.headerIndex.barPoints]) ?? 0,
       limit: numberValue(row[tab.headerIndex.limit]),
       weight: numberValue(row[tab.headerIndex.weight]),
-      rewards: parseRewards(tab, row, 10),
+      rewards,
     });
   }
   return rows.sort((left, right) => left.offerId - right.offerId);
@@ -949,6 +1028,14 @@ function parseRewards(tab: ResolvedTab, row: string[], slots: number) {
     });
   }
   return rewards;
+}
+
+function buildRewardIndexLabel(baseLabel: string, rewards: RewardSlot[]) {
+  if (rewards.length === 0) {
+    return baseLabel;
+  }
+  const rewardPart = rewards.map((item) => `${item.reward} x ${item.amount}`).join(" + ");
+  return `${baseLabel} (${rewardPart})`;
 }
 
 function buildBundleIndex(bundleRows: BundleRow[]) {
