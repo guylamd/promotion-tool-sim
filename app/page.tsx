@@ -369,28 +369,36 @@ export default async function Page({ searchParams }: PageProps) {
                     </p>
                   </div>
                   <div className="tableWrap">
-                    <table className="resultsTable">
-                      <thead>
-                        <tr>
-                          <th>Offer ID</th>
-                          {simulation.result.rewardIndexDistribution.columns.map((column) => (
-                            <th key={column.key}>{column.label}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {simulation.result.rewardIndexDistribution.rows.map((row) => (
-                          <tr key={`reward-distribution-${row.offerId}`}>
-                            <td className="mono">{row.offerId}</td>
-                            {simulation.result.rewardIndexDistribution.columns.map((column) => (
-                              <td key={`${row.offerId}-${column.key}`}>
-                                {formatPercent(row.values[column.key] ?? 0)}
-                              </td>
+                    {(() => {
+                      const distribution = simulation.result?.rewardIndexDistribution;
+                      if (!distribution) {
+                        return null;
+                      }
+                      return (
+                        <table className="resultsTable">
+                          <thead>
+                            <tr>
+                              <th>Offer ID</th>
+                              {distribution.columns.map((column) => (
+                                <th key={column.key}>{column.label}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {distribution.rows.map((row) => (
+                              <tr key={`reward-distribution-${row.offerId}`}>
+                                <td className="mono">{row.offerId}</td>
+                                {distribution.columns.map((column) => (
+                                  <td key={`${row.offerId}-${column.key}`}>
+                                    {formatPercent(row.values[column.key] ?? 0)}
+                                  </td>
+                                ))}
+                              </tr>
                             ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                          </tbody>
+                        </table>
+                      );
+                    })()}
                   </div>
                 </section>
               </>
