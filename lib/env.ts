@@ -1,7 +1,8 @@
 const DEFAULT_APP_URL = "http://localhost:3000";
 
 export function getAppUrl() {
-  return process.env.APP_URL?.trim() || DEFAULT_APP_URL;
+  const raw = process.env.APP_URL?.trim() || DEFAULT_APP_URL;
+  return raw.replace(/\/+$/, "");
 }
 
 export function getDataDir() {
