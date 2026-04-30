@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
   try {
     const tokens = await exchangeCodeForTokens(code);
     const profile = await fetchGoogleProfile(tokens.access_token);
-    const user = upsertUser({
+    const user = await upsertUser({
       googleId: profile.sub,
       email: profile.email,
       name: profile.name,

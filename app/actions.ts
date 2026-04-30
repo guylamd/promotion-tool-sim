@@ -16,7 +16,7 @@ export async function connectSheetAction(formData: FormData) {
   const input = String(formData.get("sheetUrl") ?? "");
   const spreadsheetId = extractSpreadsheetId(input);
 
-  saveRecentSheet({
+  await saveRecentSheet({
     userId: user.id,
     spreadsheetId,
     spreadsheetUrl: buildSpreadsheetUrl(spreadsheetId),

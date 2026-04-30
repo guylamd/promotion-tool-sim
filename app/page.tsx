@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { connectSheetAction, refreshSheetAction, toggleThemeAction } from "@/app/actions";
 import { getCurrentUser } from "@/lib/auth";
 import { hasGoogleOAuthConfig, isDevPreviewEnabled } from "@/lib/env";
-import { listRecentSheets, saveRecentSheet } from "@/lib/db";
+import { listRecentSheets, saveRecentSheet, type RecentSheet } from "@/lib/db";
 import { buildPromotionModel, runSimulation, validatePromotionSheet } from "@/lib/promotion";
 import { buildSpreadsheetUrl, extractSpreadsheetId, loadSpreadsheetSnapshot } from "@/lib/google";
 
@@ -19,7 +19,7 @@ export default async function Page({ searchParams }: PageProps) {
   const currentUser = await getCurrentUser();
   const devPreview = isDevPreviewEnabled();
   const oauthReady = hasGoogleOAuthConfig();
-  const recentSheets = currentUser ? listRecentSheets(currentUser.id) : [];
+  const recentSheets = currentUser ? await listRecentSheets(currentUser.id) : [];
 
   let pageError = errorParam;
   let sheetInputValue = "";
@@ -40,7 +40,7 @@ export default async function Page({ searchParams }: PageProps) {
       const validation = validatePromotionSheet(snapshot);
       const built = buildPromotionModel(snapshot, validation);
 
-      saveRecentSheet({
+      await saveRecentSheet({
         userId: currentUser.id,
         spreadsheetId,
         spreadsheetUrl: buildSpreadsheetUrl(spreadsheetId),
@@ -214,7 +214,7 @@ export default async function Page({ searchParams }: PageProps) {
           <section className="panel">
             <h2 className="panelTitle">Recent sheets</h2>
             <div className="recentList">
-              {recentSheets.map((sheet) => (
+              {recentSheets.map((sheet: RecentSheet) => (
                 <div className="recentItem" key={`${sheet.userId}-${sheet.spreadsheetId}`}>
                   <div className="recentMeta">
                     <p className="recentTitle">
