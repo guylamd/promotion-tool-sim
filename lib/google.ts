@@ -112,12 +112,12 @@ export async function refreshAccessToken(user: DbUser) {
     }),
   );
 
-  updateUserTokens(user.id, {
+  await updateUserTokens(user.id, {
     accessToken: tokens.access_token,
     accessTokenExpiresAt: Date.now() + tokens.expires_in * 1000,
   });
 
-  const refreshedUser = getUserById(user.id);
+  const refreshedUser = await getUserById(user.id);
   return refreshedUser?.accessToken ?? tokens.access_token;
 }
 

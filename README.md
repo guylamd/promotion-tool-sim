@@ -16,7 +16,7 @@ A multi-user internal web app for connecting a Google Sheet, validating the prom
 Copy `.env.example` to `.env` and fill in:
 
 - `APP_URL`
-- `DATA_DIR`
+- `DATABASE_URL`
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
 
@@ -30,7 +30,7 @@ npm run dev
 
 ## Notes
 
-- The app uses the runtime's built-in SQLite support and stores local state in `.data/promotion-simulator.sqlite`.
+- The app uses PostgreSQL for durable users, sessions, and recent sheets state.
 - Recent sheets are stored per user.
 - Sheet refresh is manual by design so designers can edit freely and recompute only when ready.
 
@@ -38,10 +38,9 @@ npm run dev
 
 1. Push this repository to GitHub.
 2. In Railway, create a new project from the GitHub repo.
-3. Add a volume to the web service and mount it at `/app/.data`.
 4. In Railway service variables, set:
    - `APP_URL=https://your-railway-domain`
-   - `DATA_DIR=/app/.data`
+   - `DATABASE_URL=postgres://...`
    - `GOOGLE_CLIENT_ID=...`
    - `GOOGLE_CLIENT_SECRET=...`
 5. In Railway service settings, enable `Wait for CI` so Railway only deploys after the GitHub workflow passes.

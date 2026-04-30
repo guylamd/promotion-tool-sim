@@ -20,9 +20,9 @@ export async function getCurrentUser(): Promise<DbUser | null> {
   const token = cookieStore.get(SESSION_COOKIE)?.value;
 
   if (token) {
-    const session = getSession(token);
+    const session = await getSession(token);
     if (session) {
-      const user = getUserById(session.userId);
+      const user = await getUserById(session.userId);
       if (user) {
         return user;
       }
@@ -73,7 +73,7 @@ export async function createUserSession(userId: number) {
   const secure = shouldUseSecureCookies();
   const identityToken = createIdentityToken(userId, expiresAt.getTime());
 
-  createSession(userId, token, expiresAt);
+  await createSession(userId, token, expiresAt);
   cookieStore.set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
@@ -95,7 +95,7 @@ export async function clearUserSession() {
   const token = cookieStore.get(SESSION_COOKIE)?.value;
 
   if (token) {
-    deleteSession(token);
+    await deleteSession(token);
   }
 
   cookieStore.delete(SESSION_COOKIE);
