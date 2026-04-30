@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { connectSheetAction, refreshSheetAction, toggleThemeAction } from "@/app/actions";
 import { getCurrentUser } from "@/lib/auth";
 import { hasGoogleOAuthConfig, isDevPreviewEnabled } from "@/lib/env";
@@ -15,13 +16,18 @@ export default async function Page({ searchParams }: PageProps) {
   const cookieStore = await cookies();
   const currentTheme = cookieStore.get("theme")?.value === "dark" ? "dark" : "light";
   const errorParam = readParam(params.error);
+  const authErrorParam = readParam(params.auth_error);
   const sheetParam = readParam(params.sheet);
   const currentUser = await getCurrentUser();
   const devPreview = isDevPreviewEnabled();
   const oauthReady = hasGoogleOAuthConfig();
   const recentSheets = currentUser ? await listRecentSheets(currentUser.id) : [];
 
-  let pageError = errorParam;
+  if (!devPreview && oauthReady && !currentUser && !authErrorParam) {
+    redirect("/api/auth/login");
+  }
+
+  let pageError = authErrorParam || errorParam;
   let sheetInputValue = "";
   let simulation:
     | {

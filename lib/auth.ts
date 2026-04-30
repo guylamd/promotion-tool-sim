@@ -8,7 +8,7 @@ import {
   getUserById,
   type DbUser,
 } from "@/lib/db";
-import { shouldUseSecureCookies } from "@/lib/env";
+import { isAllowedEmail, shouldUseSecureCookies } from "@/lib/env";
 
 const SESSION_COOKIE = "promotion_simulator_session";
 const IDENTITY_COOKIE = "promotion_simulator_identity";
@@ -24,6 +24,10 @@ export async function getCurrentUser(): Promise<DbUser | null> {
     if (session) {
       const user = await getUserById(session.userId);
       if (user) {
+        if (!isAllowedEmail(user.email)) {
+          await deleteSession(token);
+          return null;
+        }
         return user;
       }
     }
@@ -39,7 +43,11 @@ export async function getCurrentUser(): Promise<DbUser | null> {
     return null;
   }
 
-  return getUserById(payload.userId);
+  const user = await getUserById(payload.userId);
+  if (!user) {
+    return null;
+  }
+  return isAllowedEmail(user.email) ? user : null;
 }
 
 export async function startOAuthState() {
