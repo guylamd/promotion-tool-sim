@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { connectSheetAction, refreshSheetAction, toggleThemeAction } from "@/app/actions";
+import { connectSheetAction, refreshSheetAction } from "@/app/actions";
+import { ThemeSwitch } from "@/app/theme-switch";
 import { getCurrentUser } from "@/lib/auth";
 import { hasGoogleOAuthConfig, isDevPreviewEnabled } from "@/lib/env";
 import { listRecentSheets, saveRecentSheet, type RecentSheet } from "@/lib/db";
@@ -85,13 +86,7 @@ export default async function Page({ searchParams }: PageProps) {
         <img className="appLogo" src="/whalo-logo.gif" alt="Whalo logo" />
         <h1 className="appTitle">Promotion Tool Simulator</h1>
         <div className="headerActions">
-          <form action={toggleThemeAction}>
-            <input type="hidden" name="currentTheme" value={currentTheme} />
-            <input type="hidden" name="returnTo" value={sheetParam ? `/?sheet=${encodeURIComponent(sheetParam)}` : "/"} />
-            <button className="ghostButton" type="submit">
-              {currentTheme === "dark" ? "Light mode" : "Dark mode"}
-            </button>
-          </form>
+          <ThemeSwitch initialTheme={currentTheme} />
         </div>
       </header>
 
@@ -196,10 +191,10 @@ export default async function Page({ searchParams }: PageProps) {
               name="sheetUrl"
               placeholder="https://docs.google.com/spreadsheets/d/..."
               defaultValue={sheetInputValue}
-              disabled={!currentUser}
+              disabled={!currentUser && !devPreview}
             />
             <div className="actions">
-              <button className="button" type="submit" disabled={!currentUser}>
+              <button className="button" type="submit" disabled={!currentUser && !devPreview}>
                 Connect sheet
               </button>
             </div>
