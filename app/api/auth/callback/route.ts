@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { consumeOAuthState, createUserSession } from "@/lib/auth";
 import { upsertUser } from "@/lib/db";
-import { getAppUrl } from "@/lib/env";
+import { getAppUrl, isAllowedEmail } from "@/lib/env";
 import { exchangeCodeForTokens, fetchGoogleProfile } from "@/lib/google";
 
 export async function GET(request: NextRequest) {
@@ -29,6 +29,14 @@ export async function GET(request: NextRequest) {
   try {
     const tokens = await exchangeCodeForTokens(code);
     const profile = await fetchGoogleProfile(tokens.access_token);
+    if (!isAllowedEmail(profile.email)) {
+      return NextResponse.redirect(
+        new URL(
+          `/?auth_error=${encodeURIComponent("Only @whalo.com users are allowed.")}`,
+          appBase,
+        ),
+      );
+    }
     const user = await upsertUser({
       googleId: profile.sub,
       email: profile.email,
