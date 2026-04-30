@@ -4,23 +4,37 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { getCurrentUser } from "@/lib/auth";
+import { isDevPreviewEnabled } from "@/lib/env";
 import { saveRecentSheet } from "@/lib/db";
 import { buildSpreadsheetUrl, extractSpreadsheetId } from "@/lib/google";
 
 export async function connectSheetAction(formData: FormData) {
+  const devPreview = isDevPreviewEnabled();
   const user = await getCurrentUser();
-  if (!user) {
+  if (!user && !devPreview) {
     redirect("/");
   }
 
   const input = String(formData.get("sheetUrl") ?? "");
-  const spreadsheetId = extractSpreadsheetId(input);
+  let spreadsheetId = "dev-preview";
 
-  await saveRecentSheet({
-    userId: user.id,
-    spreadsheetId,
-    spreadsheetUrl: buildSpreadsheetUrl(spreadsheetId),
-  });
+  if (user) {
+    spreadsheetId = extractSpreadsheetId(input);
+  } else if (input.trim().length > 0) {
+    try {
+      spreadsheetId = extractSpreadsheetId(input);
+    } catch {
+      spreadsheetId = "dev-preview";
+    }
+  }
+
+  if (user) {
+    await saveRecentSheet({
+      userId: user.id,
+      spreadsheetId,
+      spreadsheetUrl: buildSpreadsheetUrl(spreadsheetId),
+    });
+  }
 
   redirect(`/?sheet=${encodeURIComponent(spreadsheetId)}&refreshed=${Date.now()}`);
 }
