@@ -57,19 +57,29 @@ export async function exportResultsAction(formData: FormData) {
 
   const input = String(formData.get("sheetUrl") ?? "");
   const spreadsheetId = extractSpreadsheetId(input);
-  const snapshot = await loadSpreadsheetSnapshot(user, spreadsheetId);
-  const validation = validatePromotionSheet(snapshot);
-  const built = buildPromotionModel(snapshot, validation);
+  try {
+    const snapshot = await loadSpreadsheetSnapshot(user, spreadsheetId);
+    const validation = validatePromotionSheet(snapshot);
+    const built = buildPromotionModel(snapshot, validation);
 
-  if (!built.model) {
+    if (!built.model) {
+      redirect(
+        `/?sheet=${encodeURIComponent(spreadsheetId)}&error=${encodeURIComponent("Cannot export results while simulation is blocked by validation errors.")}`,
+      );
+    }
+
+    const result = runSimulation(built.model);
+    const rows = buildExportRows(snapshot.spreadsheetTitle, result);
+    await writeSheetValues(user, spreadsheetId, "Simulator Results", rows);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to export results.";
+    const hint = message.includes("insufficient")
+      ? "Google permission is missing for sheet write. Please sign out and sign in again, then retry export."
+      : message;
     redirect(
-      `/?sheet=${encodeURIComponent(spreadsheetId)}&error=${encodeURIComponent("Cannot export results while simulation is blocked by validation errors.")}`,
+      `/?sheet=${encodeURIComponent(spreadsheetId)}&error=${encodeURIComponent(hint)}`,
     );
   }
-
-  const result = runSimulation(built.model);
-  const rows = buildExportRows(snapshot.spreadsheetTitle, result);
-  await writeSheetValues(user, spreadsheetId, "Simulator Results", rows);
 
   redirect(`/?sheet=${encodeURIComponent(spreadsheetId)}&refreshed=${Date.now()}`);
 }
