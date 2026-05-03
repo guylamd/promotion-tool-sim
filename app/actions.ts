@@ -134,13 +134,13 @@ function buildExportRows(
     "Payment",
     "Cost ($)",
     "Cumulative Cost ($)",
-    "Main",
-    "Bundle",
-    "Bar",
-    "Total Spins Value Direct",
-    "Total Spins Value Other",
-    "Cumulative Spins Value Direct",
-    "Cumulative Spins Value Other",
+    "Main Rewards Value",
+    "Bundle Rewards Value",
+    "Progress Bar Rewards Value",
+    "Direct Energy Spins Value",
+    "Other Rewards Spins Value",
+    "Cumulative Direct Energy Spins Value",
+    "Cumulative Other Rewards Spins Value",
     "Slope No Bar",
     "Slope With Bar",
     "Cumulative No Bar",
@@ -153,11 +153,10 @@ function buildExportRows(
   let cumulativeOther = 0;
   for (const row of result.rows) {
     const direct = row.directEnergyMainValue + row.directEnergyBundleValue;
-    const other = row.attributedVfmWithoutBar - direct;
-    const otherRaw = row.mainValue + row.bundleValue - direct;
+    const other = row.mainValue + row.bundleValue - direct;
     cumulativeCost += row.approximateDollarCost;
     cumulativeDirect += direct;
-    cumulativeOther += otherRaw;
+    cumulativeOther += other;
     rows.push([
       row.offerId,
       row.paymentType,

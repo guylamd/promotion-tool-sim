@@ -78,7 +78,7 @@ export default async function Page({ searchParams }: PageProps) {
   const rowsWithCumulativeValues = simulation?.result
     ? simulation.result.rows.map((row, index, allRows) => {
         const currentDirect = row.directEnergyMainValue + row.directEnergyBundleValue;
-        const currentOther = row.attributedVfmWithoutBar - currentDirect;
+        const currentOther = row.mainValue + row.bundleValue - currentDirect;
         const cumulativeCost = allRows
           .slice(0, index + 1)
           .reduce((sum, entry) => sum + entry.approximateDollarCost, 0);
@@ -322,9 +322,8 @@ export default async function Page({ searchParams }: PageProps) {
                   <div className="tableHead">
                     <h2 className="panelTitle">Offer ID results</h2>
                     <p className="panelCopy">
-                      Each row represents the state after that purchase index. Free follow-up
-                      rewards are rolled back into the nearest preceding non-free offer for
-                      total spins value and slope calculations.
+                      Each row represents the state after that purchase index, with reward
+                      value columns shown as row-level outcomes for that offer.
                     </p>
                   </div>
                   <div className="tableWrap">
@@ -336,13 +335,13 @@ export default async function Page({ searchParams }: PageProps) {
                           <th>Rollup</th>
                           <th>Cost</th>
                           <th>Cumulative cost</th>
-                          <th>Main</th>
-                          <th>Bundle</th>
-                          <th>Bar</th>
-                          <th>Total spins value direct</th>
-                          <th>Total spins value other</th>
-                          <th>Cumulative spins value direct</th>
-                          <th>Cumulative spins value other</th>
+                          <th>Main Rewards Value</th>
+                          <th>Bundle Rewards Value</th>
+                          <th>Progress Bar Rewards Value</th>
+                          <th>Direct Energy Spins Value</th>
+                          <th>Other Rewards Spins Value</th>
+                          <th>Cumulative Direct Energy Spins Value</th>
+                          <th>Cumulative Other Rewards Spins Value</th>
                           <th>Slope no bar</th>
                           <th>Slope with bar</th>
                           <th>Cumulative no bar</th>
