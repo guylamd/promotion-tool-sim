@@ -49,7 +49,7 @@ export async function buildGoogleAuthUrl() {
       "openid",
       "email",
       "profile",
-      "https://www.googleapis.com/auth/spreadsheets.readonly",
+      "https://www.googleapis.com/auth/spreadsheets",
     ].join(" "),
   );
   url.searchParams.set("access_type", "offline");
@@ -174,6 +174,80 @@ export async function loadSpreadsheetSnapshot(user: DbUser, spreadsheetId: strin
   };
 
   return snapshot;
+}
+
+export async function writeSheetValues(
+  user: DbUser,
+  spreadsheetId: string,
+  tabTitle: string,
+  values: Array<Array<string | number>>,
+) {
+  const accessToken = await refreshAccessToken(user);
+  const metadata = await fetchSpreadsheetMetadata(accessToken, spreadsheetId);
+  const hasTab = metadata.sheets.some((sheet) => sheet.properties.title === tabTitle);
+
+  if (!hasTab) {
+    const createResponse = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          requests: [{ addSheet: { properties: { title: tabTitle } } }],
+        }),
+        cache: "no-store",
+      },
+    );
+
+    if (!createResponse.ok) {
+      const text = await createResponse.text();
+      throw new Error(text || `Failed to create output tab (${createResponse.status})`);
+    }
+  }
+
+  const clearRange = `${quoteTabTitle(tabTitle)}!A:ZZ`;
+  const clearResponse = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(clearRange)}:clear`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({}),
+      cache: "no-store",
+    },
+  );
+
+  if (!clearResponse.ok) {
+    const text = await clearResponse.text();
+    throw new Error(text || `Failed to clear output tab (${clearResponse.status})`);
+  }
+
+  const writeRange = `${quoteTabTitle(tabTitle)}!A1`;
+  const updateResponse = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(writeRange)}?valueInputOption=USER_ENTERED`,
+    {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        majorDimension: "ROWS",
+        values,
+      }),
+      cache: "no-store",
+    },
+  );
+
+  if (!updateResponse.ok) {
+    const text = await updateResponse.text();
+    throw new Error(text || `Failed to write output tab (${updateResponse.status})`);
+  }
 }
 
 async function fetchSpreadsheetMetadata(accessToken: string, spreadsheetId: string) {

@@ -1,6 +1,10 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { connectSheetAction, refreshSheetAction } from "@/app/actions";
+import {
+  connectSheetAction,
+  exportResultsAction,
+  refreshSheetAction,
+} from "@/app/actions";
 import { ThemeSwitch } from "@/app/theme-switch";
 import { getCurrentUser } from "@/lib/auth";
 import { hasGoogleOAuthConfig, isDevPreviewEnabled } from "@/lib/env";
@@ -71,12 +75,29 @@ export default async function Page({ searchParams }: PageProps) {
     simulation = buildDevPreviewSimulation();
   }
 
-  const rowsWithCumulativeCost = simulation?.result
+  const rowsWithCumulativeValues = simulation?.result
     ? simulation.result.rows.map((row, index, allRows) => {
+        const currentDirect = row.directEnergyMainValue + row.directEnergyBundleValue;
+        const currentOther = row.attributedVfmWithoutBar - currentDirect;
         const cumulativeCost = allRows
           .slice(0, index + 1)
           .reduce((sum, entry) => sum + entry.approximateDollarCost, 0);
-        return { ...row, cumulativeCost };
+        const cumulativeDirect = allRows.slice(0, index + 1).reduce((sum, entry) => {
+          return sum + entry.directEnergyMainValue + entry.directEnergyBundleValue;
+        }, 0);
+        const cumulativeOther = allRows.slice(0, index + 1).reduce((sum, entry) => {
+          const entryDirect = entry.directEnergyMainValue + entry.directEnergyBundleValue;
+          return sum + (entry.attributedVfmWithoutBar - entryDirect);
+        }, 0);
+
+        return {
+          ...row,
+          currentDirect,
+          currentOther,
+          cumulativeCost,
+          cumulativeDirect,
+          cumulativeOther,
+        };
       })
     : [];
 
@@ -209,6 +230,16 @@ export default async function Page({ searchParams }: PageProps) {
               </div>
             </form>
           ) : null}
+          {simulation?.result ? (
+            <form action={exportResultsAction} className="refreshForm">
+              <input type="hidden" name="sheetUrl" value={simulation.snapshotUrl} />
+              <div className="actions">
+                <button className="secondaryButton" type="submit">
+                  Export results to sheet
+                </button>
+              </div>
+            </form>
+          ) : null}
         </section>
 
         {recentSheets.length > 0 ? (
@@ -312,6 +343,8 @@ export default async function Page({ searchParams }: PageProps) {
                           <th>Bar</th>
                           <th>Total spins value direct</th>
                           <th>Total spins value other</th>
+                          <th>Cumulative spins value direct</th>
+                          <th>Cumulative spins value other</th>
                           <th>Slope no bar</th>
                           <th>Slope with bar</th>
                           <th>Cumulative no bar</th>
@@ -320,7 +353,7 @@ export default async function Page({ searchParams }: PageProps) {
                         </tr>
                       </thead>
                       <tbody>
-                        {rowsWithCumulativeCost.map((row) => (
+                        {rowsWithCumulativeValues.map((row) => (
                           <tr key={row.offerId}>
                             <td className="mono">{row.offerId}</td>
                             <td>{row.paymentType}</td>
@@ -338,18 +371,10 @@ export default async function Page({ searchParams }: PageProps) {
                             <td>{formatNumber(row.mainValue)}</td>
                             <td>{formatNumber(row.bundleValue)}</td>
                             <td>{formatNumber(row.barValue)}</td>
-                            <td>
-                              {formatNumber(
-                                row.directEnergyMainValue + row.directEnergyBundleValue,
-                              )}
-                            </td>
-                            <td>
-                              {formatNumber(
-                                row.attributedVfmWithoutBar -
-                                  (row.directEnergyMainValue +
-                                    row.directEnergyBundleValue),
-                              )}
-                            </td>
+                            <td>{formatNumber(row.currentDirect)}</td>
+                            <td>{formatNumber(row.currentOther)}</td>
+                            <td>{formatNumber(row.cumulativeDirect)}</td>
+                            <td>{formatNumber(row.cumulativeOther)}</td>
                             <td>{formatRatio(row.incrementalSlopeWithoutBar)}</td>
                             <td>{formatRatio(row.incrementalSlopeWithBar)}</td>
                             <td>{formatRatio(row.cumulativeSlopeWithoutBar)}</td>
