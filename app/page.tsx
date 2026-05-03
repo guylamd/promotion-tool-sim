@@ -2,7 +2,6 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import {
   connectSheetAction,
-  exportResultsAction,
   refreshSheetAction,
 } from "@/app/actions";
 import { ThemeSwitch } from "@/app/theme-switch";
@@ -23,6 +22,7 @@ export default async function Page({ searchParams }: PageProps) {
   const errorParam = readParam(params.error);
   const authErrorParam = readParam(params.auth_error);
   const sheetParam = readParam(params.sheet);
+  const autoExportEnabled = readParam(params.autoExport) === "1";
   const currentUser = await getCurrentUser();
   const devPreview = isDevPreviewEnabled();
   const oauthReady = hasGoogleOAuthConfig();
@@ -87,7 +87,7 @@ export default async function Page({ searchParams }: PageProps) {
         }, 0);
         const cumulativeOther = allRows.slice(0, index + 1).reduce((sum, entry) => {
           const entryDirect = entry.directEnergyMainValue + entry.directEnergyBundleValue;
-          return sum + (entry.attributedVfmWithoutBar - entryDirect);
+          return sum + (entry.mainValue + entry.bundleValue - entryDirect);
         }, 0);
 
         return {
@@ -214,6 +214,15 @@ export default async function Page({ searchParams }: PageProps) {
               defaultValue={sheetInputValue}
               disabled={!currentUser && !devPreview}
             />
+            <label className="toggleRow">
+              <input
+                type="checkbox"
+                name="autoExport"
+                value="1"
+                defaultChecked={autoExportEnabled}
+              />
+              <span>Auto-export results to sheet on each run</span>
+            </label>
             <div className="actions">
               <button className="button" type="submit" disabled={!currentUser && !devPreview}>
                 Connect sheet
@@ -223,19 +232,14 @@ export default async function Page({ searchParams }: PageProps) {
           {simulation ? (
             <form action={refreshSheetAction} className="refreshForm">
               <input type="hidden" name="sheetUrl" value={simulation.snapshotUrl} />
+              <input
+                type="hidden"
+                name="autoExport"
+                value={autoExportEnabled ? "1" : "0"}
+              />
               <div className="actions">
                 <button className="secondaryButton" type="submit">
                   Refresh simulation
-                </button>
-              </div>
-            </form>
-          ) : null}
-          {simulation?.result ? (
-            <form action={exportResultsAction} className="refreshForm">
-              <input type="hidden" name="sheetUrl" value={simulation.snapshotUrl} />
-              <div className="actions">
-                <button className="secondaryButton" type="submit">
-                  Export results to sheet
                 </button>
               </div>
             </form>
