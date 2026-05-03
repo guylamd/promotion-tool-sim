@@ -223,6 +223,14 @@ input {
   align-items: center;
 }
 
+.toggleRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
 .requirementsGrid {
   display: grid;
   gap: 10px;

@@ -42,7 +42,15 @@ export async function connectSheetAction(formData: FormData) {
     });
   }
 
-  redirect(`/?sheet=${encodeURIComponent(spreadsheetId)}&refreshed=${Date.now()}`);
+  const autoExport = isAutoExportEnabled(formData);
+  if (user && autoExport) {
+    await exportSimulationResults(user, spreadsheetId);
+  }
+
+  const autoExportQuery = autoExport ? "&autoExport=1" : "";
+  redirect(
+    `/?sheet=${encodeURIComponent(spreadsheetId)}&refreshed=${Date.now()}${autoExportQuery}`,
+  );
 }
 
 export async function refreshSheetAction(formData: FormData) {
@@ -58,19 +66,7 @@ export async function exportResultsAction(formData: FormData) {
   const input = String(formData.get("sheetUrl") ?? "");
   const spreadsheetId = extractSpreadsheetId(input);
   try {
-    const snapshot = await loadSpreadsheetSnapshot(user, spreadsheetId);
-    const validation = validatePromotionSheet(snapshot);
-    const built = buildPromotionModel(snapshot, validation);
-
-    if (!built.model) {
-      redirect(
-        `/?sheet=${encodeURIComponent(spreadsheetId)}&error=${encodeURIComponent("Cannot export results while simulation is blocked by validation errors.")}`,
-      );
-    }
-
-    const result = runSimulation(built.model);
-    const rows = buildExportRows(snapshot.spreadsheetTitle, result);
-    await writeSheetValues(user, spreadsheetId, "Simulator Results", rows);
+    await exportSimulationResults(user, spreadsheetId);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to export results.";
     const hint = message.includes("insufficient")
@@ -158,9 +154,10 @@ function buildExportRows(
   for (const row of result.rows) {
     const direct = row.directEnergyMainValue + row.directEnergyBundleValue;
     const other = row.attributedVfmWithoutBar - direct;
+    const otherRaw = row.mainValue + row.bundleValue - direct;
     cumulativeCost += row.approximateDollarCost;
     cumulativeDirect += direct;
-    cumulativeOther += other;
+    cumulativeOther += otherRaw;
     rows.push([
       row.offerId,
       row.paymentType,
@@ -205,4 +202,22 @@ function round(value: number) {
 
 function safeRatio(value: number | null) {
   return value === null ? "" : Number(value.toFixed(4));
+}
+
+function isAutoExportEnabled(formData: FormData) {
+  return String(formData.get("autoExport") ?? "") === "1";
+}
+
+async function exportSimulationResults(user: NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>, spreadsheetId: string) {
+  const snapshot = await loadSpreadsheetSnapshot(user, spreadsheetId);
+  const validation = validatePromotionSheet(snapshot);
+  const built = buildPromotionModel(snapshot, validation);
+
+  if (!built.model) {
+    throw new Error("Cannot export results while simulation is blocked by validation errors.");
+  }
+
+  const result = runSimulation(built.model);
+  const rows = buildExportRows(snapshot.spreadsheetTitle, result);
+  await writeSheetValues(user, spreadsheetId, "Simulator Results", rows);
 }
