@@ -4,6 +4,7 @@ import {
   connectSheetAction,
   refreshSheetAction,
 } from "@/app/actions";
+import { FormSubmitLoaderButton } from "@/app/form-submit-loader-button";
 import { ThemeSwitch } from "@/app/theme-switch";
 import { getCurrentUser } from "@/lib/auth";
 import { hasGoogleOAuthConfig, isDevPreviewEnabled } from "@/lib/env";
@@ -226,17 +227,19 @@ export default async function Page({ searchParams }: PageProps) {
               <span>Auto-export results to sheet on each run</span>
             </label>
             <div className="actions">
-              <button className="button" type="submit" disabled={!currentUser && !devPreview}>
-                Connect sheet
-              </button>
+              <FormSubmitLoaderButton
+                className="button"
+                idleLabel="Connect sheet"
+                loadingLabel="Connecting sheet..."
+                disabled={!currentUser && !devPreview}
+              />
               {simulation ? (
-                <button
+                <FormSubmitLoaderButton
                   className="secondaryButton"
-                  type="submit"
+                  idleLabel="Refresh simulation"
+                  loadingLabel="Refreshing simulation..."
                   formAction={refreshSheetAction}
-                >
-                  Refresh simulation
-                </button>
+                />
               ) : null}
             </div>
           </form>
