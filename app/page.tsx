@@ -227,23 +227,17 @@ export default async function Page({ searchParams }: PageProps) {
               <button className="button" type="submit" disabled={!currentUser && !devPreview}>
                 Connect sheet
               </button>
-            </div>
-          </form>
-          {simulation ? (
-            <form action={refreshSheetAction} className="refreshForm">
-              <input type="hidden" name="sheetUrl" value={simulation.snapshotUrl} />
-              <input
-                type="hidden"
-                name="autoExport"
-                value={autoExportEnabled ? "1" : "0"}
-              />
-              <div className="actions">
-                <button className="secondaryButton" type="submit">
+              {simulation ? (
+                <button
+                  className="secondaryButton"
+                  type="submit"
+                  formAction={refreshSheetAction}
+                >
                   Refresh simulation
                 </button>
-              </div>
-            </form>
-          ) : null}
+              ) : null}
+            </div>
+          </form>
         </section>
 
         {recentSheets.length > 0 ? (
