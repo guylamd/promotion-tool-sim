@@ -38,12 +38,6 @@ export function ThemeSwitch({ initialTheme }: { initialTheme: ThemeMode }) {
       aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
     >
       <span className="themeSwitchTrack">
-        <span className="themeSwitchTrackIcon themeSwitchTrackIconSun" aria-hidden="true">
-          {"\u2600"}
-        </span>
-        <span className="themeSwitchTrackIcon themeSwitchTrackIconMoon" aria-hidden="true">
-          {"\u263E"}
-        </span>
         <span className={`themeSwitchThumb ${theme === "dark" ? "isDark" : ""}`}>
           <span className="themeSwitchThumbIcon" aria-hidden="true">
             {theme === "dark" ? "\u263E" : "\u2600"}
