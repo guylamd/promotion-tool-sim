@@ -89,6 +89,7 @@ export default async function Page({ searchParams }: PageProps) {
           const entryDirect = entry.directEnergyMainValue + entry.directEnergyBundleValue;
           return sum + (entry.mainValue + entry.bundleValue - entryDirect);
         }, 0);
+        const cumulativeTotalSpinsValue = cumulativeDirect + cumulativeOther;
 
         return {
           ...row,
@@ -97,6 +98,7 @@ export default async function Page({ searchParams }: PageProps) {
           cumulativeCost,
           cumulativeDirect,
           cumulativeOther,
+          cumulativeTotalSpinsValue,
         };
       })
     : [];
@@ -342,6 +344,7 @@ export default async function Page({ searchParams }: PageProps) {
                           <th>Other Rewards Spins Value</th>
                           <th>Cumulative Direct Energy Spins Value</th>
                           <th>Cumulative Other Rewards Spins Value</th>
+                          <th>Cumulative Total Spins Value</th>
                           <th>Slope no bar</th>
                           <th>Slope with bar</th>
                           <th>Cumulative no bar</th>
@@ -372,6 +375,7 @@ export default async function Page({ searchParams }: PageProps) {
                             <td>{formatNumber(row.currentOther)}</td>
                             <td>{formatNumber(row.cumulativeDirect)}</td>
                             <td>{formatNumber(row.cumulativeOther)}</td>
+                            <td>{formatNumber(row.cumulativeTotalSpinsValue)}</td>
                             <td>{formatRatio(row.incrementalSlopeWithoutBar)}</td>
                             <td>{formatRatio(row.incrementalSlopeWithBar)}</td>
                             <td>{formatRatio(row.cumulativeSlopeWithoutBar)}</td>
