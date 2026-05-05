@@ -359,14 +359,21 @@ export function buildPromotionModel(
   const rewardValues = parseRewardValues(valuationTab, issues);
   const pricePoints = parsePricePoints(priceListTab, issues);
   const groupRows = parseGroupRows(groupsTab);
-  const groupLimits = new Map<number, number>();
-  for (const groupRow of groupRows) {
-    if (groupRow.limit !== null) {
-      groupLimits.set(groupRow.group, groupRow.limit);
-    }
-  }
+  const configuredGroups = new Set(groupRows.map((row) => row.group));
 
   const mainRows = parseMainRows(mainTab, issues);
+  const offersPerGroup = new Map<number, number>();
+  for (const row of mainRows) {
+    if (row.group === null) {
+      continue;
+    }
+    offersPerGroup.set(row.group, (offersPerGroup.get(row.group) ?? 0) + 1);
+  }
+  const groupLimits = new Map<number, number>();
+  for (const groupRow of groupRows) {
+    const fallbackLimit = offersPerGroup.get(groupRow.group) ?? 0;
+    groupLimits.set(groupRow.group, groupRow.limit ?? fallbackLimit);
+  }
   const bundleRows = parseBundleRows(bundleTab);
   const barRows = parseBarRows(barTab, issues);
 
@@ -381,7 +388,7 @@ export function buildPromotionModel(
     if (!paymentTypes.has(row.paymentTypeKey)) {
       issues.push(configError("Main Config", `Offer ${row.offerId}`, `Payment type "${row.paymentType}" is not listed in Payment Types.`));
     }
-    if (row.group !== null && !groupLimits.has(row.group)) {
+    if (row.group !== null && !configuredGroups.has(row.group)) {
       issues.push(configError("Groups Config", `Group ${row.group}`, `Group ${row.group} is used in Main Config but missing from Groups Config.`));
     }
     if (row.rewards.length === 0) {
