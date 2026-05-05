@@ -947,6 +947,10 @@ function parseMainRows(tab: ResolvedTab, issues: ValidationIssue[]) {
     }
     const rewards = parseRewards(tab, row, 10);
     const rewardIndexRaw = clean(row[tab.headerIndex.rewardIndex]);
+    const parsedWeight = numberValue(row[tab.headerIndex.weight]);
+    const parsedLimit = numberValue(row[tab.headerIndex.limit]);
+    const effectiveLimit =
+      parsedLimit !== null ? parsedLimit : parsedWeight === null ? 1 : null;
     rows.push({
       offerId,
       rewardIndex: rewardIndexRaw || `offer_${offerId}`,
@@ -961,8 +965,8 @@ function parseMainRows(tab: ResolvedTab, issues: ValidationIssue[]) {
       dollarCost: numberValue(row[tab.headerIndex.dollarCost]),
       resourceCost: numberValue(row[tab.headerIndex.resourceCost]),
       barPoints: numberValue(row[tab.headerIndex.barPoints]) ?? 0,
-      limit: numberValue(row[tab.headerIndex.limit]),
-      weight: numberValue(row[tab.headerIndex.weight]),
+      limit: effectiveLimit,
+      weight: parsedWeight,
       rewards,
     });
   }
