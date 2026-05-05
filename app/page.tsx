@@ -4,6 +4,7 @@ import {
   connectSheetAction,
   refreshSheetAction,
 } from "@/app/actions";
+import { BackToTopButton } from "@/app/back-to-top-button";
 import { FormSubmitLoaderButton } from "@/app/form-submit-loader-button";
 import { ThemeSwitch } from "@/app/theme-switch";
 import { getCurrentUser } from "@/lib/auth";
@@ -115,7 +116,7 @@ export default async function Page({ searchParams }: PageProps) {
       </header>
 
       <div className="stack">
-        <section className="panel">
+        <section className="panel" id="sheet-connect-panel">
           <h2 className="panelTitle">Google access</h2>
           {oauthReady ? (
             currentUser ? (
@@ -445,6 +446,7 @@ export default async function Page({ searchParams }: PageProps) {
           </section>
         )}
       </div>
+      <BackToTopButton targetId="sheet-connect-panel" />
     </main>
   );
 }
