@@ -729,6 +729,28 @@ html.theme-dark .resultsTable th {
   font-weight: 700;
 }
 
+.backToTopButton {
+  position: fixed;
+  right: 22px;
+  bottom: 24px;
+  z-index: 50;
+  border: none;
+  border-radius: 999px;
+  padding: 12px 16px;
+  font-weight: 700;
+  color: white;
+  background: var(--accent);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    opacity 180ms ease;
+}
+
+.backToTopButton:hover {
+  transform: translateY(-1px);
+}
+
 @media (max-width: 980px) {
   .hero {
     grid-template-columns: 1fr;
