@@ -305,9 +305,20 @@ export async function listRecentSheets(userId: number): Promise<RecentSheet[]> {
       FROM user_recent_sheets
       WHERE user_id = $1
       ORDER BY updated_at DESC
-      LIMIT 8
+      LIMIT 20
     `,
     [userId],
   );
   return result.rows.map((row: Record<string, unknown>) => mapRecentSheet(row));
+}
+
+export async function deleteRecentSheet(userId: number, spreadsheetId: string): Promise<void> {
+  await ensureSchema();
+  await getPool().query(
+    `
+      DELETE FROM user_recent_sheets
+      WHERE user_id = $1 AND spreadsheet_id = $2
+    `,
+    [userId, spreadsheetId],
+  );
 }

@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import {
   connectSheetAction,
+  removeRecentSheetAction,
   refreshSheetAction,
 } from "@/app/actions";
 import { BackToTopButton } from "@/app/back-to-top-button";
@@ -248,25 +249,40 @@ export default async function Page({ searchParams }: PageProps) {
 
         {recentSheets.length > 0 ? (
           <section className="panel">
-            <h2 className="panelTitle">Recent sheets</h2>
-            <div className="recentList">
-              {recentSheets.map((sheet: RecentSheet) => (
-                <div className="recentItem" key={`${sheet.userId}-${sheet.spreadsheetId}`}>
-                  <div className="recentMeta">
-                    <p className="recentTitle">
-                      {sheet.spreadsheetTitle ?? `Sheet ${sheet.spreadsheetId}`}
-                    </p>
-                    <div className="recentSubtle">{sheet.spreadsheetUrl}</div>
+            <details className="requirementsDetails" open>
+              <summary className="requirementsSummary">
+                Recent sheets ({recentSheets.length})
+              </summary>
+              <div className="recentList">
+                {recentSheets.map((sheet: RecentSheet) => (
+                  <div className="recentItem" key={`${sheet.userId}-${sheet.spreadsheetId}`}>
+                    <div className="recentMeta">
+                      <p className="recentTitle">
+                        {sheet.spreadsheetTitle ?? `Sheet ${sheet.spreadsheetId}`}
+                      </p>
+                      <div className="recentSubtle">{sheet.spreadsheetUrl}</div>
+                    </div>
+                    <div className="recentActions">
+                      <form action={refreshSheetAction}>
+                        <input type="hidden" name="sheetUrl" value={sheet.spreadsheetUrl} />
+                        <input type="hidden" name="autoExport" value={autoExportEnabled ? "1" : "0"} />
+                        <button className="secondaryButton" type="submit">
+                          Open
+                        </button>
+                      </form>
+                      <form action={removeRecentSheetAction}>
+                        <input type="hidden" name="spreadsheetId" value={sheet.spreadsheetId} />
+                        <input type="hidden" name="currentSheet" value={sheetParam ?? ""} />
+                        <input type="hidden" name="autoExport" value={autoExportEnabled ? "1" : "0"} />
+                        <button className="recentDeleteButton" type="submit" aria-label="Remove from recent sheets">
+                          ×
+                        </button>
+                      </form>
+                    </div>
                   </div>
-                  <form action={refreshSheetAction}>
-                    <input type="hidden" name="sheetUrl" value={sheet.spreadsheetUrl} />
-                    <button className="secondaryButton" type="submit">
-                      Open
-                    </button>
-                  </form>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            </details>
           </section>
         ) : null}
 

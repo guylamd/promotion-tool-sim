@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 
 import { getCurrentUser } from "@/lib/auth";
 import { isDevPreviewEnabled } from "@/lib/env";
-import { saveRecentSheet } from "@/lib/db";
+import { deleteRecentSheet, saveRecentSheet } from "@/lib/db";
 import {
   buildSpreadsheetUrl,
   extractSpreadsheetId,
@@ -55,6 +55,31 @@ export async function connectSheetAction(formData: FormData) {
 
 export async function refreshSheetAction(formData: FormData) {
   return connectSheetAction(formData);
+}
+
+export async function removeRecentSheetAction(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect("/");
+  }
+
+  const spreadsheetId = String(formData.get("spreadsheetId") ?? "").trim();
+  if (spreadsheetId) {
+    await deleteRecentSheet(user.id, spreadsheetId);
+  }
+
+  const currentSheet = String(formData.get("currentSheet") ?? "").trim();
+  const autoExportEnabled = String(formData.get("autoExport") ?? "").trim() === "1";
+  const query = new URLSearchParams();
+  if (currentSheet) {
+    query.set("sheet", currentSheet);
+  }
+  if (autoExportEnabled) {
+    query.set("autoExport", "1");
+  }
+
+  const suffix = query.toString();
+  redirect(suffix ? `/?${suffix}` : "/");
 }
 
 export async function exportResultsAction(formData: FormData) {
