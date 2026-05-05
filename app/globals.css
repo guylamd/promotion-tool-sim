@@ -550,6 +550,34 @@ html.theme-dark .themeSwitchThumb::before {
   background: rgba(255, 255, 255, 0.78);
 }
 
+.recentActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.recentDeleteButton {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.05rem;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    transform 150ms ease,
+    opacity 150ms ease,
+    background 150ms ease;
+}
+
+.recentDeleteButton:hover {
+  transform: translateY(-1px);
+  background: rgba(190, 18, 60, 0.08);
+  color: var(--error);
+}
+
 .recentMeta {
   min-width: 0;
 }
