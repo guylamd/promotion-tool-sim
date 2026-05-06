@@ -468,7 +468,7 @@ export function buildPromotionModel(
 
 export function runSimulation(model: PromotionModel): SimulationResult {
   const start = performance.now();
-  const runCount = model.weightedMode ? 1000 : 1;
+  const runCount = model.weightedMode ? 10000 : 1;
   const aggregates = model.mainRows.map<Aggregate>((row) => ({
     offerId: row.offerId,
     paymentType: row.paymentType,
