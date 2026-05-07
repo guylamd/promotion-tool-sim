@@ -341,8 +341,10 @@ export default async function Page({ searchParams }: PageProps) {
                 </section>
 
                 <section className="tableCard">
-                  <details open>
-                    <summary className="requirementsSummary tableSummary">By Group Values</summary>
+                  <details className="requirementsDetails" open>
+                    <summary className="requirementsSummary tableSummary">
+                      By Group Values
+                    </summary>
                     <div className="tableHead">
                       <p className="panelCopy">
                         Group-level values including optional Buy All economics when Buy All
