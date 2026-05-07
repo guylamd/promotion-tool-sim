@@ -582,6 +582,7 @@ function simulateJourney(model: PromotionModel, rng: (() => number) | null) {
     if (!selected) {
       break;
     }
+    const economicsRow = model.weightedMode ? purchaseRow : selected;
 
     rowWins.set(selected.offerId, (rowWins.get(selected.offerId) ?? 0) + 1);
     if (selected.group !== null) {
@@ -594,7 +595,7 @@ function simulateJourney(model: PromotionModel, rng: (() => number) | null) {
     }
 
     const bundle = model.bundleByPurchaseIndex.get(purchaseIndex + 1) ?? null;
-    cumulativeBarPoints += purchaseRow.barPoints + (bundle?.barPoints ?? 0);
+    cumulativeBarPoints += economicsRow.barPoints + (bundle?.barPoints ?? 0);
 
     const newBarRewards: RewardSlot[] = [];
     for (const barRow of model.barRows) {
@@ -607,13 +608,13 @@ function simulateJourney(model: PromotionModel, rng: (() => number) | null) {
       }
     }
 
-    const cost = resolveCost(purchaseRow, model);
+    const cost = resolveCost(economicsRow, model);
     const selectedMainRewards = selected.rewards;
     const bundleRewards = bundle?.rewards ?? [];
     steps.push({
-      offerId: purchaseRow.offerId,
+      offerId: economicsRow.offerId,
       rewardIndex: selected.rewardIndex,
-      paymentType: purchaseRow.paymentType,
+      paymentType: economicsRow.paymentType,
       baselineSpinsCost: cost.baselineSpinsCost,
       approximateDollarCost: cost.approximateDollarCost,
       mainValue: rewardValue(selectedMainRewards, model.rewardValues),
