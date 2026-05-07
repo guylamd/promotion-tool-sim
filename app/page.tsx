@@ -8,6 +8,7 @@ import {
 import { BackToTopButton } from "@/app/back-to-top-button";
 import { FormSubmitLoaderButton } from "@/app/form-submit-loader-button";
 import { RefreshFloatingButton } from "@/app/refresh-floating-button";
+import { RefreshSubmitOverlay } from "@/app/refresh-submit-overlay";
 import { ThemeSwitch } from "@/app/theme-switch";
 import { getCurrentUser } from "@/lib/auth";
 import { hasGoogleOAuthConfig, isDevPreviewEnabled } from "@/lib/env";
@@ -538,6 +539,7 @@ export default async function Page({ searchParams }: PageProps) {
           refreshFormId="refresh-simulation-form"
         />
       ) : null}
+      {simulation ? <RefreshSubmitOverlay formId="refresh-simulation-form" /> : null}
     </main>
   );
 }
