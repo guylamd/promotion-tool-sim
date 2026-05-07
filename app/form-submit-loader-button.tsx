@@ -8,6 +8,7 @@ type Props = {
   className: string;
   disabled?: boolean;
   formAction?: (formData: FormData) => void | Promise<void>;
+  form?: string;
 };
 
 export function FormSubmitLoaderButton({
@@ -16,6 +17,7 @@ export function FormSubmitLoaderButton({
   className,
   disabled = false,
   formAction,
+  form,
 }: Props) {
   const { pending } = useFormStatus();
 
@@ -25,6 +27,7 @@ export function FormSubmitLoaderButton({
         className={className}
         type="submit"
         formAction={formAction}
+        form={form}
         disabled={pending || disabled}
       >
         {pending ? loadingLabel : idleLabel}

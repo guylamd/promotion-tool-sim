@@ -7,6 +7,7 @@ import {
 } from "@/app/actions";
 import { BackToTopButton } from "@/app/back-to-top-button";
 import { FormSubmitLoaderButton } from "@/app/form-submit-loader-button";
+import { RefreshFloatingButton } from "@/app/refresh-floating-button";
 import { ThemeSwitch } from "@/app/theme-switch";
 import { getCurrentUser } from "@/lib/auth";
 import { hasGoogleOAuthConfig, isDevPreviewEnabled } from "@/lib/env";
@@ -240,11 +241,17 @@ export default async function Page({ searchParams }: PageProps) {
                   className="secondaryButton"
                   idleLabel="Refresh simulation"
                   loadingLabel="Refreshing simulation..."
-                  formAction={refreshSheetAction}
+                  form="refresh-simulation-form"
                 />
               ) : null}
             </div>
           </form>
+          {simulation ? (
+            <form id="refresh-simulation-form" action={refreshSheetAction}>
+              <input type="hidden" name="sheetUrl" value={simulation.snapshotUrl} />
+              <input type="hidden" name="autoExport" value={autoExportEnabled ? "1" : "0"} />
+            </form>
+          ) : null}
         </section>
 
         {recentSheets.length > 0 ? (
@@ -525,6 +532,12 @@ export default async function Page({ searchParams }: PageProps) {
         )}
       </div>
       <BackToTopButton targetId="sheet-connect-panel" />
+      {simulation ? (
+        <RefreshFloatingButton
+          anchorId="sheet-connect-panel"
+          refreshFormId="refresh-simulation-form"
+        />
+      ) : null}
     </main>
   );
 }
