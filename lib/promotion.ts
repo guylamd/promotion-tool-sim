@@ -77,6 +77,7 @@ type BarRow = {
 type GroupRow = {
   group: number;
   limit: number | null;
+  buyAllCost: number | null;
 };
 
 type PricePoint = {
@@ -97,6 +98,7 @@ export type PromotionModel = {
   weightedMode: boolean;
   usesGroups: boolean;
   groupLimits: Map<number, number>;
+  groupBuyAllCosts: Map<number, number | null>;
   groupOrder: number[];
   bundleByPurchaseIndex: Map<number, BundleRow>;
   anchorOfferByOfferId: Map<number, number>;
@@ -109,6 +111,7 @@ export type DistributionEntry = {
 
 export type OfferResultRow = {
   offerId: number;
+  group: number | null;
   paymentType: string;
   rollsIntoOfferId: number | null;
   approximateDollarCost: number;
@@ -133,6 +136,24 @@ export type OfferResultRow = {
   };
 };
 
+export type GroupResultRow = {
+  group: number;
+  offerCount: number;
+  totalCost: number;
+  totalMainValue: number;
+  totalBundleValue: number;
+  totalBarValue: number;
+  totalDirectEnergySpins: number;
+  totalOtherSpins: number;
+  totalSpinsNoBar: number;
+  totalSpinsWithBar: number;
+  slopeNoBar: number | null;
+  slopeWithBar: number | null;
+  buyAllCost: number | null;
+  buyAllSlopeNoBar: number | null;
+  buyAllSlopeWithBar: number | null;
+};
+
 export type SimulationResult = {
   runCount: number;
   weightedMode: boolean;
@@ -143,6 +164,7 @@ export type SimulationResult = {
     columns: { key: string; label: string }[];
     rows: { offerId: number; values: Record<string, number> }[];
   };
+  byGroupValues: GroupResultRow[];
   summary: {
     promotionTitle: string;
     totalBaselineSpinsCost: number;
@@ -370,9 +392,11 @@ export function buildPromotionModel(
     offersPerGroup.set(row.group, (offersPerGroup.get(row.group) ?? 0) + 1);
   }
   const groupLimits = new Map<number, number>();
+  const groupBuyAllCosts = new Map<number, number | null>();
   for (const groupRow of groupRows) {
     const fallbackLimit = offersPerGroup.get(groupRow.group) ?? 0;
     groupLimits.set(groupRow.group, groupRow.limit ?? fallbackLimit);
+    groupBuyAllCosts.set(groupRow.group, groupRow.buyAllCost);
   }
   const bundleRows = parseBundleRows(bundleTab);
   const barRows = parseBarRows(barTab, issues);
@@ -458,6 +482,7 @@ export function buildPromotionModel(
     weightedMode,
     usesGroups,
     groupLimits,
+    groupBuyAllCosts,
     groupOrder: [...new Set(groupRows.map((row) => row.group))].sort((a, b) => a - b),
     bundleByPurchaseIndex: buildBundleIndex(bundleRows),
     anchorOfferByOfferId: buildAnchorIndex(mainRows),
@@ -514,6 +539,7 @@ export function runSimulation(model: PromotionModel): SimulationResult {
   const totalBundleValue = rows.reduce((sum, row) => sum + row.bundleValue, 0);
   const totalBarValue = rows.reduce((sum, row) => sum + row.barValue, 0);
   const rewardIndexDistribution = buildRewardIndexDistribution(model, aggregates, runCount);
+  const byGroupValues = buildGroupValues(model, rows);
 
   return {
     runCount,
@@ -522,6 +548,7 @@ export function runSimulation(model: PromotionModel): SimulationResult {
     snapshotHash: model.snapshotHash,
     rows,
     rewardIndexDistribution,
+    byGroupValues,
     summary: {
       promotionTitle: model.spreadsheetTitle,
       totalBaselineSpinsCost,
@@ -763,6 +790,7 @@ function finalizeRows(model: PromotionModel, aggregates: Aggregate[], runCount: 
     const anchorId = model.anchorOfferByOfferId.get(step.offerId) ?? step.offerId;
     rows.push({
       offerId: step.offerId,
+      group: model.mainRows[index]?.group ?? null,
       paymentType: step.paymentType,
       rollsIntoOfferId: anchorId === step.offerId ? null : anchorId,
       approximateDollarCost: step.approximateDollarCost,
@@ -866,6 +894,60 @@ function buildRewardIndexDistribution(
   return { columns, rows };
 }
 
+function buildGroupValues(model: PromotionModel, rows: OfferResultRow[]): GroupResultRow[] {
+  const grouped = new Map<number, OfferResultRow[]>();
+  for (const row of rows) {
+    if (row.group === null) {
+      continue;
+    }
+    grouped.set(row.group, [...(grouped.get(row.group) ?? []), row]);
+  }
+
+  const result: GroupResultRow[] = [];
+  for (const [group, groupRows] of [...grouped.entries()].sort((a, b) => a[0] - b[0])) {
+    const totalCost = groupRows.reduce((sum, row) => sum + row.approximateDollarCost, 0);
+    const totalMainValue = groupRows.reduce((sum, row) => sum + row.mainValue, 0);
+    const totalBundleValue = groupRows.reduce((sum, row) => sum + row.bundleValue, 0);
+    const totalBarValue = groupRows.reduce((sum, row) => sum + row.barValue, 0);
+    const totalDirectEnergySpins = groupRows.reduce(
+      (sum, row) => sum + row.directEnergyMainValue + row.directEnergyBundleValue,
+      0,
+    );
+    const totalSpinsNoBar = totalMainValue + totalBundleValue;
+    const totalSpinsWithBar = totalSpinsNoBar + totalBarValue;
+    const totalOtherSpins = totalSpinsNoBar - totalDirectEnergySpins;
+    const baselineAtGroupCost =
+      totalCost > 0 ? nearestPricePoint(model.pricePoints, totalCost, "price")?.totalValue ?? 0 : 0;
+    const buyAllCost = model.groupBuyAllCosts.get(group) ?? null;
+    const baselineAtBuyAllCost =
+      buyAllCost !== null && buyAllCost > 0
+        ? nearestPricePoint(model.pricePoints, buyAllCost, "price")?.totalValue ?? 0
+        : 0;
+
+    result.push({
+      group,
+      offerCount: groupRows.length,
+      totalCost,
+      totalMainValue,
+      totalBundleValue,
+      totalBarValue,
+      totalDirectEnergySpins,
+      totalOtherSpins,
+      totalSpinsNoBar,
+      totalSpinsWithBar,
+      slopeNoBar: baselineAtGroupCost > 0 ? totalSpinsNoBar / baselineAtGroupCost : null,
+      slopeWithBar: baselineAtGroupCost > 0 ? totalSpinsWithBar / baselineAtGroupCost : null,
+      buyAllCost,
+      buyAllSlopeNoBar:
+        baselineAtBuyAllCost > 0 ? totalSpinsNoBar / baselineAtBuyAllCost : null,
+      buyAllSlopeWithBar:
+        baselineAtBuyAllCost > 0 ? totalSpinsWithBar / baselineAtBuyAllCost : null,
+    });
+  }
+
+  return result;
+}
+
 function parsePaymentTypes(tab: ResolvedTab) {
   const index = tab.headerIndex.paymentType;
   const values = new Set<string>();
@@ -919,6 +1001,7 @@ function parsePricePoints(tab: ResolvedTab, issues: ValidationIssue[]) {
 
 function parseGroupRows(tab: ResolvedTab) {
   const rows: GroupRow[] = [];
+  const buyAllCostIndex = resolveHeader(tab.rawHeaderIndex, ["Buy All Cost"]);
   for (const row of tab.rows.slice(1)) {
     const group = numberValue(row[tab.headerIndex.group]);
     if (group === null) {
@@ -927,6 +1010,7 @@ function parseGroupRows(tab: ResolvedTab) {
     rows.push({
       group,
       limit: numberValue(row[tab.headerIndex.limit]),
+      buyAllCost: buyAllCostIndex === undefined ? null : numberValue(row[buyAllCostIndex]),
     });
   }
   return rows.sort((left, right) => left.group - right.group);

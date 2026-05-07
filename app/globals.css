@@ -456,6 +456,10 @@ html.theme-dark .themeSwitchThumb::before {
   border-bottom: 1px solid rgba(25, 32, 43, 0.08);
 }
 
+.tableSummary {
+  margin: 16px 24px 0;
+}
+
 .tableWrap {
   overflow-x: auto;
 }

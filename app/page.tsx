@@ -341,6 +341,66 @@ export default async function Page({ searchParams }: PageProps) {
                 </section>
 
                 <section className="tableCard">
+                  <details open>
+                    <summary className="requirementsSummary tableSummary">By Group Values</summary>
+                    <div className="tableHead">
+                      <p className="panelCopy">
+                        Group-level values including optional Buy All economics when Buy All
+                        Cost is configured in Groups Config.
+                      </p>
+                    </div>
+                    <div className="tableWrap">
+                      <table className="resultsTable">
+                        <thead>
+                          <tr>
+                            <th>Group</th>
+                            <th>Offer count</th>
+                            <th>Total cost</th>
+                            <th>Total main value</th>
+                            <th>Total bundle value</th>
+                            <th>Total bar value</th>
+                            <th>Direct energy spins value</th>
+                            <th>Other rewards spins value</th>
+                            <th>Total spins value no bar</th>
+                            <th>Total spins value with bar</th>
+                            <th>Slope no bar</th>
+                            <th>Slope with bar</th>
+                            <th>Buy all cost</th>
+                            <th>Buy all slope no bar</th>
+                            <th>Buy all slope with bar</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {simulation.result.byGroupValues.map((groupRow) => (
+                            <tr key={`group-values-${groupRow.group}`}>
+                              <td className="mono">{groupRow.group}</td>
+                              <td>{groupRow.offerCount}</td>
+                              <td>${groupRow.totalCost.toFixed(2)}</td>
+                              <td>{formatNumber(groupRow.totalMainValue)}</td>
+                              <td>{formatNumber(groupRow.totalBundleValue)}</td>
+                              <td>{formatNumber(groupRow.totalBarValue)}</td>
+                              <td>{formatNumber(groupRow.totalDirectEnergySpins)}</td>
+                              <td>{formatNumber(groupRow.totalOtherSpins)}</td>
+                              <td>{formatNumber(groupRow.totalSpinsNoBar)}</td>
+                              <td>{formatNumber(groupRow.totalSpinsWithBar)}</td>
+                              <td>{formatRatio(groupRow.slopeNoBar)}</td>
+                              <td>{formatRatio(groupRow.slopeWithBar)}</td>
+                              <td>
+                                {groupRow.buyAllCost === null
+                                  ? "-"
+                                  : `$${groupRow.buyAllCost.toFixed(2)}`}
+                              </td>
+                              <td>{formatRatio(groupRow.buyAllSlopeNoBar)}</td>
+                              <td>{formatRatio(groupRow.buyAllSlopeWithBar)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </details>
+                </section>
+
+                <section className="tableCard">
                   <div className="tableHead">
                     <h2 className="panelTitle">Offer ID results</h2>
                     <p className="panelCopy">
@@ -482,6 +542,7 @@ function buildDevPreviewSimulation() {
       rows: [
         {
           offerId: 1,
+          group: 1,
           paymentType: "USD",
           rollsIntoOfferId: null,
           approximateDollarCost: 4.99,
@@ -507,6 +568,7 @@ function buildDevPreviewSimulation() {
         },
         {
           offerId: 2,
+          group: 1,
           paymentType: "FREE",
           rollsIntoOfferId: 1,
           approximateDollarCost: 0,
@@ -532,6 +594,7 @@ function buildDevPreviewSimulation() {
         },
         {
           offerId: 3,
+          group: 2,
           paymentType: "USD",
           rollsIntoOfferId: null,
           approximateDollarCost: 9.99,
@@ -589,6 +652,42 @@ function buildDevPreviewSimulation() {
           },
         ],
       },
+      byGroupValues: [
+        {
+          group: 1,
+          offerCount: 2,
+          totalCost: 4.99,
+          totalMainValue: 1950,
+          totalBundleValue: 140,
+          totalBarValue: 50,
+          totalDirectEnergySpins: 1720,
+          totalOtherSpins: 370,
+          totalSpinsNoBar: 2090,
+          totalSpinsWithBar: 2140,
+          slopeNoBar: 4.18,
+          slopeWithBar: 4.28,
+          buyAllCost: 3.99,
+          buyAllSlopeNoBar: 5.23,
+          buyAllSlopeWithBar: 5.36,
+        },
+        {
+          group: 2,
+          offerCount: 1,
+          totalCost: 9.99,
+          totalMainValue: 2000,
+          totalBundleValue: 160,
+          totalBarValue: 90,
+          totalDirectEnergySpins: 1460,
+          totalOtherSpins: 700,
+          totalSpinsNoBar: 2160,
+          totalSpinsWithBar: 2250,
+          slopeNoBar: 1.96,
+          slopeWithBar: 2.05,
+          buyAllCost: null,
+          buyAllSlopeNoBar: null,
+          buyAllSlopeWithBar: null,
+        },
+      ],
       summary: {
         promotionTitle: "Dev Preview Promotion",
         totalBaselineSpinsCost: 1600,
