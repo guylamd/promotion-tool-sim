@@ -773,14 +773,23 @@ function finalizeRows(model: PromotionModel, aggregates: Aggregate[], runCount: 
   let cumulativeCost = 0;
   let cumulativeNoBar = 0;
   let cumulativeWithBar = 0;
+  let cumulativeStarted = false;
 
   for (let index = 0; index < averages.length; index += 1) {
     const step = averages[index];
+    const isPaidStep = step.approximateDollarCost > 0;
+
+    if (!cumulativeStarted && isPaidStep) {
+      cumulativeStarted = true;
+    }
+
     cumulativeCost += step.approximateDollarCost;
-    cumulativeNoBar += attributedWithoutBar[index];
-    cumulativeWithBar += attributedWithBar[index];
+    if (cumulativeStarted) {
+      cumulativeNoBar += attributedWithoutBar[index];
+      cumulativeWithBar += attributedWithBar[index];
+    }
     const cumulativeBaselinePoint =
-      cumulativeCost > 0
+      cumulativeStarted && cumulativeCost > 0
         ? nearestPricePoint(model.pricePoints, cumulativeCost, "price")?.totalValue ?? 0
         : 0;
     const incrementalBaselinePoint =
@@ -813,9 +822,13 @@ function finalizeRows(model: PromotionModel, aggregates: Aggregate[], runCount: 
           ? attributedWithBar[index] / incrementalBaselinePoint
           : null,
       cumulativeSlopeWithoutBar:
-        cumulativeBaselinePoint > 0 ? cumulativeNoBar / cumulativeBaselinePoint : null,
+        cumulativeStarted && cumulativeBaselinePoint > 0
+          ? cumulativeNoBar / cumulativeBaselinePoint
+          : null,
       cumulativeSlopeWithBar:
-        cumulativeBaselinePoint > 0 ? cumulativeWithBar / cumulativeBaselinePoint : null,
+        cumulativeStarted && cumulativeBaselinePoint > 0
+          ? cumulativeWithBar / cumulativeBaselinePoint
+          : null,
       averageBarMilestonesCompleted: step.milestonesCompleted,
       rewardDistribution: step.rewardDistribution,
     });
