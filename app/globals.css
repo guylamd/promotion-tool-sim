@@ -489,6 +489,56 @@ html.theme-dark .themeSwitchThumb::before {
   text-transform: uppercase;
 }
 
+.offerCell {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 28px;
+}
+
+.offerToggle,
+.offerToggleSpacer {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+}
+
+.offerToggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(36, 63, 214, 0.06);
+  color: var(--accent);
+  cursor: pointer;
+  transition:
+    transform 150ms ease,
+    background 150ms ease,
+    border-color 150ms ease;
+}
+
+.offerToggle:hover {
+  transform: translateY(-1px);
+  background: rgba(36, 63, 214, 0.12);
+}
+
+.offerToggleSpacer {
+  display: inline-block;
+}
+
+.offerToggleCount {
+  font-size: 0.78rem;
+}
+
+.rolledOfferRow {
+  background: rgba(36, 63, 214, 0.03);
+}
+
+.rolledOfferLabel {
+  padding-left: 8px;
+}
+
 .mono {
   font-family: "Consolas", "SFMono-Regular", monospace;
   font-size: 0.94rem;
@@ -702,6 +752,17 @@ html.theme-dark .tableHead {
 html[data-theme="dark"] .resultsTable th,
 html.theme-dark .resultsTable th {
   background: var(--card);
+}
+
+html[data-theme="dark"] .offerToggle,
+html.theme-dark .offerToggle {
+  background: rgba(111, 137, 255, 0.12);
+  border-color: rgba(170, 188, 255, 0.2);
+}
+
+html[data-theme="dark"] .rolledOfferRow,
+html.theme-dark .rolledOfferRow {
+  background: rgba(111, 137, 255, 0.06);
 }
 
 
