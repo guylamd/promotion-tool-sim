@@ -771,27 +771,19 @@ function finalizeRows(model: PromotionModel, aggregates: Aggregate[], runCount: 
 
   const rows: OfferResultRow[] = [];
   let cumulativeCost = 0;
-  let cumulativeNoBar = 0;
-  let cumulativeWithBar = 0;
-  let cumulativeStarted = false;
 
   for (let index = 0; index < averages.length; index += 1) {
     const step = averages[index];
-    const isPaidStep = step.approximateDollarCost > 0;
-
-    if (!cumulativeStarted && isPaidStep) {
-      cumulativeStarted = true;
-    }
 
     cumulativeCost += step.approximateDollarCost;
-    if (cumulativeStarted) {
-      cumulativeNoBar += attributedWithoutBar[index];
-      cumulativeWithBar += attributedWithBar[index];
-    }
-    const cumulativeBaselinePoint =
-      cumulativeStarted && cumulativeCost > 0
-        ? nearestPricePoint(model.pricePoints, cumulativeCost, "price")?.totalValue ?? 0
+    const cumulativePricePoint =
+      cumulativeCost > 0 ? nearestPricePoint(model.pricePoints, cumulativeCost, "price") : null;
+    const cumulativeSpinsPerDollar =
+      cumulativePricePoint && cumulativePricePoint.price > 0
+        ? cumulativePricePoint.totalValue / cumulativePricePoint.price
         : 0;
+    const currentOfferDenominator =
+      step.approximateDollarCost > 0 ? step.approximateDollarCost * cumulativeSpinsPerDollar : 0;
     const incrementalBaselinePoint =
       step.approximateDollarCost > 0
         ? nearestPricePoint(model.pricePoints, step.approximateDollarCost, "price")?.totalValue ?? 0
@@ -822,13 +814,9 @@ function finalizeRows(model: PromotionModel, aggregates: Aggregate[], runCount: 
           ? attributedWithBar[index] / incrementalBaselinePoint
           : null,
       cumulativeSlopeWithoutBar:
-        cumulativeStarted && cumulativeBaselinePoint > 0
-          ? cumulativeNoBar / cumulativeBaselinePoint
-          : null,
+        currentOfferDenominator > 0 ? attributedWithoutBar[index] / currentOfferDenominator : null,
       cumulativeSlopeWithBar:
-        cumulativeStarted && cumulativeBaselinePoint > 0
-          ? cumulativeWithBar / cumulativeBaselinePoint
-          : null,
+        currentOfferDenominator > 0 ? attributedWithBar[index] / currentOfferDenominator : null,
       averageBarMilestonesCompleted: step.milestonesCompleted,
       rewardDistribution: step.rewardDistribution,
     });
