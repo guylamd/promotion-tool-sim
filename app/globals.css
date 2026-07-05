@@ -448,7 +448,7 @@ html.theme-dark .themeSwitchThumb::before {
 }
 
 .tableCard {
-  overflow: visible;
+  overflow: hidden;
 }
 
 .tableHead {
@@ -462,14 +462,16 @@ html.theme-dark .themeSwitchThumb::before {
 
 .tableWrap {
   position: relative;
-  overflow-x: auto;
+  max-width: 100%;
+  max-height: min(70vh, 960px);
+  overflow: auto;
 }
 
 .resultsTable {
-  width: 100%;
+  width: max-content;
+  min-width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  min-width: 1400px;
 }
 
 .resultsTable th,
