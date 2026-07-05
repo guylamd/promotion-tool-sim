@@ -448,7 +448,7 @@ html.theme-dark .themeSwitchThumb::before {
 }
 
 .tableCard {
-  overflow: hidden;
+  overflow: visible;
 }
 
 .tableHead {
