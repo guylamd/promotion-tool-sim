@@ -3,11 +3,15 @@
 import { useMemo, useState } from "react";
 
 type OfferResultsRow = {
+  purchaseIndex: number;
   offerId: number;
   paymentType: string;
   rollsIntoOfferId: number | null;
+  rollsIntoPurchaseIndex: number | null;
   approximateDollarCost: number;
-  cumulativeCost: number;
+  costAmount: number;
+  costUnit: string;
+  cumulativeCostAmount: number;
   mainValue: number;
   bundleValue: number;
   barValue: number;
@@ -26,17 +30,17 @@ type OfferResultsRow = {
 export function OfferResultsTable({ rows }: { rows: OfferResultsRow[] }) {
   const anchorIds = useMemo(() => {
     return new Set(
-      rows.filter((row) => row.rollsIntoOfferId === null).map((row) => row.offerId),
+      rows.filter((row) => row.rollsIntoPurchaseIndex === null).map((row) => row.purchaseIndex),
     );
   }, [rows]);
 
   const childRowsByAnchor = useMemo(() => {
     const grouped = new Map<number, OfferResultsRow[]>();
     for (const row of rows) {
-      if (row.rollsIntoOfferId === null) {
+      if (row.rollsIntoPurchaseIndex === null) {
         continue;
       }
-      grouped.set(row.rollsIntoOfferId, [...(grouped.get(row.rollsIntoOfferId) ?? []), row]);
+      grouped.set(row.rollsIntoPurchaseIndex, [...(grouped.get(row.rollsIntoPurchaseIndex) ?? []), row]);
     }
     return grouped;
   }, [rows]);
@@ -47,22 +51,22 @@ export function OfferResultsTable({ rows }: { rows: OfferResultsRow[] }) {
     const flattened: Array<OfferResultsRow & { isRolledChild: boolean }> = [];
 
     for (const row of rows) {
-      if (row.rollsIntoOfferId !== null && anchorIds.has(row.rollsIntoOfferId)) {
+      if (row.rollsIntoPurchaseIndex !== null && anchorIds.has(row.rollsIntoPurchaseIndex)) {
         continue;
       }
 
-      const isAnchor = row.rollsIntoOfferId === null;
+      const isAnchor = row.rollsIntoPurchaseIndex === null;
       flattened.push({ ...row, isRolledChild: !isAnchor });
 
       if (!isAnchor) {
         continue;
       }
 
-      if (!expandedAnchors.has(row.offerId)) {
+      if (!expandedAnchors.has(row.purchaseIndex)) {
         continue;
       }
 
-      for (const childRow of childRowsByAnchor.get(row.offerId) ?? []) {
+      for (const childRow of childRowsByAnchor.get(row.purchaseIndex) ?? []) {
         flattened.push({ ...childRow, isRolledChild: true });
       }
     }
@@ -70,13 +74,13 @@ export function OfferResultsTable({ rows }: { rows: OfferResultsRow[] }) {
     return flattened;
   }, [anchorIds, childRowsByAnchor, expandedAnchors, rows]);
 
-  function toggleAnchor(anchorOfferId: number) {
+  function toggleAnchor(anchorPurchaseIndex: number) {
     setExpandedAnchors((current) => {
       const next = new Set(current);
-      if (next.has(anchorOfferId)) {
-        next.delete(anchorOfferId);
+      if (next.has(anchorPurchaseIndex)) {
+        next.delete(anchorPurchaseIndex);
       } else {
-        next.add(anchorOfferId);
+        next.add(anchorPurchaseIndex);
       }
       return next;
     });
@@ -86,7 +90,8 @@ export function OfferResultsTable({ rows }: { rows: OfferResultsRow[] }) {
     <table className="resultsTable">
       <thead>
         <tr>
-          <th>Offer</th>
+          <th>Purchase</th>
+          <th>Offer ID</th>
           <th>Payment</th>
           <th>Rollup</th>
           <th>Cost</th>
@@ -108,14 +113,14 @@ export function OfferResultsTable({ rows }: { rows: OfferResultsRow[] }) {
       </thead>
       <tbody>
         {visibleRows.map((row) => {
-          const childCount = childRowsByAnchor.get(row.offerId)?.length ?? 0;
-          const isAnchor = row.rollsIntoOfferId === null;
+          const childCount = childRowsByAnchor.get(row.purchaseIndex)?.length ?? 0;
+          const isAnchor = row.rollsIntoPurchaseIndex === null;
           const canToggle = isAnchor && childCount > 0;
-          const isExpanded = expandedAnchors.has(row.offerId);
+          const isExpanded = expandedAnchors.has(row.purchaseIndex);
 
           return (
             <tr
-              key={row.offerId}
+              key={row.purchaseIndex}
               className={row.isRolledChild ? "rolledOfferRow" : undefined}
             >
               <td>
@@ -124,12 +129,12 @@ export function OfferResultsTable({ rows }: { rows: OfferResultsRow[] }) {
                     <button
                       type="button"
                       className="offerToggle"
-                      onClick={() => toggleAnchor(row.offerId)}
+                      onClick={() => toggleAnchor(row.purchaseIndex)}
                       aria-expanded={isExpanded}
                       aria-label={
                         isExpanded
-                          ? `Hide rolled offers for anchor ${row.offerId}`
-                          : `Show rolled offers for anchor ${row.offerId}`
+                          ? `Hide rolled offers for purchase ${row.purchaseIndex}`
+                          : `Show rolled offers for purchase ${row.purchaseIndex}`
                       }
                     >
                       <span className="mono">{isExpanded ? "-" : "+"}</span>
@@ -140,13 +145,14 @@ export function OfferResultsTable({ rows }: { rows: OfferResultsRow[] }) {
                   <span
                     className={`mono ${row.isRolledChild ? "rolledOfferLabel" : ""}`}
                   >
-                    {row.offerId}
+                    {row.purchaseIndex}
                   </span>
                   {canToggle ? (
                     <span className="offerToggleCount muted">{childCount}</span>
                   ) : null}
                 </div>
               </td>
+              <td className="mono">{row.offerId}</td>
               <td>{row.paymentType}</td>
               <td>
                 {row.rollsIntoOfferId ? (
@@ -155,8 +161,8 @@ export function OfferResultsTable({ rows }: { rows: OfferResultsRow[] }) {
                   <span className="pill">Anchor</span>
                 )}
               </td>
-              <td>${row.approximateDollarCost.toFixed(2)}</td>
-              <td>${row.cumulativeCost.toFixed(2)}</td>
+              <td>{formatCost(row.costAmount, row.costUnit)}</td>
+              <td>{formatCost(row.cumulativeCostAmount, row.costUnit)}</td>
               <td>{formatNumber(row.mainValue)}</td>
               <td>{formatNumber(row.bundleValue)}</td>
               <td>{formatNumber(row.barValue)}</td>
@@ -182,6 +188,13 @@ function formatNumber(value: number) {
   return new Intl.NumberFormat("en-US", {
     maximumFractionDigits: value >= 100 ? 0 : 2,
   }).format(value);
+}
+
+function formatCost(value: number, unit: string) {
+  if (unit === "$") {
+    return `$${value.toFixed(2)}`;
+  }
+  return `${formatNumber(value)} ${unit}`;
 }
 
 function formatRatio(value: number | null) {

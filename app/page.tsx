@@ -17,6 +17,16 @@ import { listRecentSheets, saveRecentSheet, type RecentSheet } from "@/lib/db";
 import { buildPromotionModel, runSimulation, validatePromotionSheet } from "@/lib/promotion";
 import { buildSpreadsheetUrl, extractSpreadsheetId, loadSpreadsheetSnapshot } from "@/lib/google";
 
+function formatCost(value: number, unit: string) {
+  if (unit === "$") {
+    return `$${value.toFixed(2)}`;
+  }
+  if (unit === "mixed") {
+    return "Mixed";
+  }
+  return `${formatNumber(value)} ${unit}`;
+}
+
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
@@ -85,9 +95,10 @@ export default async function Page({ searchParams }: PageProps) {
     ? simulation.result.rows.map((row, index, allRows) => {
         const currentDirect = row.directEnergyMainValue + row.directEnergyBundleValue;
         const currentOther = row.mainValue + row.bundleValue - currentDirect;
-        const cumulativeCost = allRows
+        const cumulativeCostAmount = allRows
           .slice(0, index + 1)
-          .reduce((sum, entry) => sum + entry.approximateDollarCost, 0);
+          .filter((entry) => entry.costUnit === row.costUnit)
+          .reduce((sum, entry) => sum + entry.costAmount, 0);
         const cumulativeDirect = allRows.slice(0, index + 1).reduce((sum, entry) => {
           return sum + entry.directEnergyMainValue + entry.directEnergyBundleValue;
         }, 0);
@@ -101,7 +112,7 @@ export default async function Page({ searchParams }: PageProps) {
           ...row,
           currentDirect,
           currentOther,
-          cumulativeCost,
+          cumulativeCostAmount,
           cumulativeDirect,
           cumulativeOther,
           cumulativeTotalSpinsValue,
@@ -386,7 +397,7 @@ export default async function Page({ searchParams }: PageProps) {
                             <tr key={`group-values-${groupRow.group}`}>
                               <td className="mono">{groupRow.group}</td>
                               <td>{groupRow.offerCount}</td>
-                              <td>${groupRow.totalCost.toFixed(2)}</td>
+                              <td>{formatCost(groupRow.totalCost, groupRow.totalCostUnit)}</td>
                               <td>{formatNumber(groupRow.totalMainValue)}</td>
                               <td>{formatNumber(groupRow.totalBundleValue)}</td>
                               <td>{formatNumber(groupRow.totalBarValue)}</td>
@@ -441,6 +452,7 @@ export default async function Page({ searchParams }: PageProps) {
                         <table className="resultsTable">
                           <thead>
                             <tr>
+                              <th>Purchase</th>
                               <th>Offer ID</th>
                               {distribution.columns.map((column) => (
                                 <th key={column.key}>{column.label}</th>
@@ -449,10 +461,11 @@ export default async function Page({ searchParams }: PageProps) {
                           </thead>
                           <tbody>
                             {distribution.rows.map((row) => (
-                              <tr key={`reward-distribution-${row.offerId}`}>
+                              <tr key={`reward-distribution-${row.purchaseIndex}`}>
+                                <td className="mono">{row.purchaseIndex}</td>
                                 <td className="mono">{row.offerId}</td>
                                 {distribution.columns.map((column) => (
-                                  <td key={`${row.offerId}-${column.key}`}>
+                                  <td key={`${row.purchaseIndex}-${column.key}`}>
                                     {formatPercent(row.values[column.key] ?? 0)}
                                   </td>
                                 ))}
@@ -504,12 +517,18 @@ function buildDevPreviewSimulation() {
       snapshotHash: "devpreview",
       rows: [
         {
+          purchaseIndex: 1,
           offerId: 1,
           group: 1,
           paymentType: "USD",
           rollsIntoOfferId: null,
+          rollsIntoPurchaseIndex: null,
           approximateDollarCost: 4.99,
           baselineSpinsCost: 500,
+          costAmount: 4.99,
+          costUnit: "$",
+          costType: "dollar" as const,
+          costSpinsValue: 500,
           mainValue: 1300,
           bundleValue: 100,
           barValue: 30,
@@ -530,12 +549,18 @@ function buildDevPreviewSimulation() {
           },
         },
         {
+          purchaseIndex: 2,
           offerId: 2,
           group: 1,
           paymentType: "FREE",
           rollsIntoOfferId: 1,
+          rollsIntoPurchaseIndex: 1,
           approximateDollarCost: 0,
           baselineSpinsCost: 0,
+          costAmount: 0,
+          costUnit: "FREE",
+          costType: "free" as const,
+          costSpinsValue: 0,
           mainValue: 650,
           bundleValue: 40,
           barValue: 20,
@@ -556,12 +581,18 @@ function buildDevPreviewSimulation() {
           },
         },
         {
+          purchaseIndex: 3,
           offerId: 3,
           group: 2,
           paymentType: "USD",
           rollsIntoOfferId: null,
+          rollsIntoPurchaseIndex: null,
           approximateDollarCost: 9.99,
           baselineSpinsCost: 1100,
+          costAmount: 9.99,
+          costUnit: "$",
+          costType: "dollar" as const,
+          costSpinsValue: 1100,
           mainValue: 2000,
           bundleValue: 160,
           barValue: 90,
@@ -590,6 +621,7 @@ function buildDevPreviewSimulation() {
         ],
         rows: [
           {
+            purchaseIndex: 1,
             offerId: 1,
             values: {
               "Reward Index 1": 0.6,
@@ -598,6 +630,7 @@ function buildDevPreviewSimulation() {
             },
           },
           {
+            purchaseIndex: 2,
             offerId: 2,
             values: {
               "Reward Index 1": 0.5,
@@ -606,6 +639,7 @@ function buildDevPreviewSimulation() {
             },
           },
           {
+            purchaseIndex: 3,
             offerId: 3,
             values: {
               "Reward Index 1": 0.4,
@@ -620,6 +654,7 @@ function buildDevPreviewSimulation() {
           group: 1,
           offerCount: 2,
           totalCost: 4.99,
+          totalCostUnit: "$",
           totalMainValue: 1950,
           totalBundleValue: 140,
           totalBarValue: 50,
@@ -637,6 +672,7 @@ function buildDevPreviewSimulation() {
           group: 2,
           offerCount: 1,
           totalCost: 9.99,
+          totalCostUnit: "$",
           totalMainValue: 2000,
           totalBundleValue: 160,
           totalBarValue: 90,

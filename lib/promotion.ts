@@ -110,12 +110,18 @@ export type DistributionEntry = {
 };
 
 export type OfferResultRow = {
+  purchaseIndex: number;
   offerId: number;
   group: number | null;
   paymentType: string;
   rollsIntoOfferId: number | null;
+  rollsIntoPurchaseIndex: number | null;
   approximateDollarCost: number;
   baselineSpinsCost: number;
+  costAmount: number;
+  costUnit: string;
+  costType: "dollar" | "resource" | "free";
+  costSpinsValue: number;
   mainValue: number;
   bundleValue: number;
   barValue: number;
@@ -140,6 +146,7 @@ export type GroupResultRow = {
   group: number;
   offerCount: number;
   totalCost: number;
+  totalCostUnit: string;
   totalMainValue: number;
   totalBundleValue: number;
   totalBarValue: number;
@@ -162,7 +169,7 @@ export type SimulationResult = {
   rows: OfferResultRow[];
   rewardIndexDistribution: {
     columns: { key: string; label: string }[];
-    rows: { offerId: number; values: Record<string, number> }[];
+    rows: { purchaseIndex: number; offerId: number; values: Record<string, number> }[];
   };
   byGroupValues: GroupResultRow[];
   summary: {
@@ -182,11 +189,17 @@ export type SimulationResult = {
 };
 
 type StepResult = {
+  purchaseIndex: number;
   offerId: number;
+  group: number | null;
   rewardIndex: string;
   paymentType: string;
   baselineSpinsCost: number;
   approximateDollarCost: number;
+  costAmount: number;
+  costUnit: string;
+  costType: "dollar" | "resource" | "free";
+  costSpinsValue: number;
   mainValue: number;
   bundleValue: number;
   barValue: number;
@@ -202,10 +215,16 @@ type StepResult = {
 };
 
 type Aggregate = {
+  purchaseIndex: number;
   offerId: number;
+  group: number | null;
   paymentType: string;
   baselineSpinsCost: number;
   approximateDollarCost: number;
+  costAmount: number;
+  costUnit: string;
+  costType: "dollar" | "resource" | "free";
+  costSpinsValue: number;
   mainValue: number;
   bundleValue: number;
   barValue: number;
@@ -494,23 +513,9 @@ export function buildPromotionModel(
 export function runSimulation(model: PromotionModel): SimulationResult {
   const start = performance.now();
   const runCount = model.weightedMode ? 10000 : 1;
-  const aggregates = model.mainRows.map<Aggregate>((row) => ({
-    offerId: row.offerId,
-    paymentType: row.paymentType,
-    baselineSpinsCost: 0,
-    approximateDollarCost: 0,
-    mainValue: 0,
-    bundleValue: 0,
-    barValue: 0,
-    directEnergyMainValue: 0,
-    directEnergyBundleValue: 0,
-    directEnergyBarValue: 0,
-    milestonesCompleted: 0,
-    mainDistribution: new Map(),
-    bundleDistribution: new Map(),
-    barDistribution: new Map(),
-    rewardIndexSelection: new Map(),
-  }));
+  const aggregates: Aggregate[] = model.weightedMode
+    ? model.mainRows.map((row, index) => createEmptyAggregate(row, index + 1, model))
+    : [];
 
   const rng = model.weightedMode ? mulberry32(seedFromHash(model.snapshotHash)) : null;
 
@@ -539,7 +544,7 @@ export function runSimulation(model: PromotionModel): SimulationResult {
   const totalBundleValue = rows.reduce((sum, row) => sum + row.bundleValue, 0);
   const totalBarValue = rows.reduce((sum, row) => sum + row.barValue, 0);
   const rewardIndexDistribution = buildRewardIndexDistribution(model, aggregates, runCount);
-  const byGroupValues = buildGroupValues(model, rows);
+  const byGroupValues = buildGroupValues(model);
 
   return {
     runCount,
@@ -575,9 +580,12 @@ function simulateJourney(model: PromotionModel, rng: (() => number) | null) {
   const awardedBars = new Set<number>();
   const steps: StepResult[] = [];
   let cumulativeBarPoints = 0;
+  const maxPurchases = model.weightedMode
+    ? model.mainRows.length
+    : model.mainRows.reduce((sum, row) => sum + (row.limit ?? 1), 0);
 
-  for (let purchaseIndex = 0; purchaseIndex < model.mainRows.length; purchaseIndex += 1) {
-    const purchaseRow = model.mainRows[purchaseIndex];
+  for (let purchaseIndex = 0; purchaseIndex < maxPurchases; purchaseIndex += 1) {
+    const purchaseRow = model.mainRows[purchaseIndex] ?? model.mainRows[model.mainRows.length - 1];
     const selected = selectMainReward(model, rowWins, groupWins, closedGroups, rng);
     if (!selected) {
       break;
@@ -612,11 +620,17 @@ function simulateJourney(model: PromotionModel, rng: (() => number) | null) {
     const selectedMainRewards = selected.rewards;
     const bundleRewards = bundle?.rewards ?? [];
     steps.push({
+      purchaseIndex: purchaseIndex + 1,
       offerId: economicsRow.offerId,
+      group: economicsRow.group,
       rewardIndex: selected.rewardIndex,
       paymentType: economicsRow.paymentType,
       baselineSpinsCost: cost.baselineSpinsCost,
       approximateDollarCost: cost.approximateDollarCost,
+      costAmount: cost.costAmount,
+      costUnit: cost.costUnit,
+      costType: cost.costType,
+      costSpinsValue: cost.costSpinsValue,
       mainValue: rewardValue(selectedMainRewards, model.rewardValues),
       bundleValue: rewardValue(bundleRewards, model.rewardValues),
       barValue: rewardValue(newBarRewards, model.rewardValues),
@@ -703,6 +717,10 @@ function resolveCost(row: MainRow, model: PromotionModel) {
     return {
       baselineSpinsCost: exact?.totalValue ?? nearestPricePoint(model.pricePoints, row.dollarCost ?? 0, "price")?.totalValue ?? 0,
       approximateDollarCost: row.dollarCost ?? 0,
+      costAmount: row.dollarCost ?? 0,
+      costUnit: "$",
+      costType: "dollar" as const,
+      costSpinsValue: exact?.totalValue ?? nearestPricePoint(model.pricePoints, row.dollarCost ?? 0, "price")?.totalValue ?? 0,
     };
   }
 
@@ -711,14 +729,22 @@ function resolveCost(row: MainRow, model: PromotionModel) {
     const baseline = resourceValue * (row.resourceCost ?? 0);
     const nearest = nearestPricePoint(model.pricePoints, baseline, "value");
     return {
-      baselineSpinsCost: nearest?.totalValue ?? baseline,
+      baselineSpinsCost: baseline,
       approximateDollarCost: nearest?.price ?? 0,
+      costAmount: row.resourceCost ?? 0,
+      costUnit: row.paymentType,
+      costType: "resource" as const,
+      costSpinsValue: baseline,
     };
   }
 
   return {
     baselineSpinsCost: 0,
     approximateDollarCost: 0,
+    costAmount: 0,
+    costUnit: row.paymentType || "Free",
+    costType: "free" as const,
+    costSpinsValue: 0,
   };
 }
 
@@ -737,10 +763,16 @@ function inferCostType(row: MainRow) {
 
 function finalizeRows(model: PromotionModel, aggregates: Aggregate[], runCount: number) {
   const averages = aggregates.map((aggregate) => ({
+    purchaseIndex: aggregate.purchaseIndex,
     offerId: aggregate.offerId,
+    group: aggregate.group,
     paymentType: aggregate.paymentType,
     baselineSpinsCost: aggregate.baselineSpinsCost / runCount,
     approximateDollarCost: aggregate.approximateDollarCost / runCount,
+    costAmount: aggregate.costAmount / runCount,
+    costUnit: aggregate.costUnit,
+    costType: aggregate.costType,
+    costSpinsValue: aggregate.costSpinsValue / runCount,
     mainValue: aggregate.mainValue / runCount,
     bundleValue: aggregate.bundleValue / runCount,
     barValue: aggregate.barValue / runCount,
@@ -757,14 +789,19 @@ function finalizeRows(model: PromotionModel, aggregates: Aggregate[], runCount: 
 
   const attributedWithoutBar = new Array(averages.length).fill(0);
   const attributedWithBar = new Array(averages.length).fill(0);
+  const anchorIndexByRow = new Array<number>(averages.length).fill(-1);
 
   for (let index = 0; index < averages.length; index += 1) {
     const step = averages[index];
     const anchorId = model.anchorOfferByOfferId.get(step.offerId) ?? step.offerId;
-    const anchorIndex = model.mainRows.findIndex((row) => row.offerId === anchorId);
+    const anchorIndex =
+      anchorId === step.offerId
+        ? index
+        : findPreviousAnchorIndex(averages, index, anchorId);
     if (anchorIndex === -1) {
       continue;
     }
+    anchorIndexByRow[index] = anchorIndex;
     attributedWithoutBar[anchorIndex] += step.mainValue + step.bundleValue;
     attributedWithBar[anchorIndex] += step.mainValue + step.bundleValue + step.barValue;
   }
@@ -775,7 +812,9 @@ function finalizeRows(model: PromotionModel, aggregates: Aggregate[], runCount: 
   for (let index = 0; index < averages.length; index += 1) {
     const step = averages[index];
 
-    cumulativeCost += step.approximateDollarCost;
+    if (step.costType === "dollar") {
+      cumulativeCost += step.approximateDollarCost;
+    }
     const cumulativePricePoint =
       cumulativeCost > 0 ? nearestPricePoint(model.pricePoints, cumulativeCost, "price") : null;
     const cumulativeSpinsPerDollar =
@@ -783,20 +822,36 @@ function finalizeRows(model: PromotionModel, aggregates: Aggregate[], runCount: 
         ? cumulativePricePoint.totalValue / cumulativePricePoint.price
         : 0;
     const currentOfferDenominator =
-      step.approximateDollarCost > 0 ? step.approximateDollarCost * cumulativeSpinsPerDollar : 0;
+      step.costType === "resource"
+        ? step.costSpinsValue
+        : step.approximateDollarCost > 0
+          ? step.approximateDollarCost * cumulativeSpinsPerDollar
+          : 0;
     const incrementalBaselinePoint =
-      step.approximateDollarCost > 0
+      step.costType === "resource"
+        ? step.costSpinsValue
+        : step.approximateDollarCost > 0
         ? nearestPricePoint(model.pricePoints, step.approximateDollarCost, "price")?.totalValue ?? 0
         : 0;
 
     const anchorId = model.anchorOfferByOfferId.get(step.offerId) ?? step.offerId;
+    const anchorIndex = anchorIndexByRow[index];
     rows.push({
+      purchaseIndex: step.purchaseIndex,
       offerId: step.offerId,
-      group: model.mainRows[index]?.group ?? null,
+      group: step.group,
       paymentType: step.paymentType,
       rollsIntoOfferId: anchorId === step.offerId ? null : anchorId,
+      rollsIntoPurchaseIndex:
+        anchorIndex !== -1 && anchorIndex !== index
+          ? averages[anchorIndex].purchaseIndex
+          : null,
       approximateDollarCost: step.approximateDollarCost,
       baselineSpinsCost: step.baselineSpinsCost,
+      costAmount: step.costAmount,
+      costUnit: step.costUnit,
+      costType: step.costType,
+      costSpinsValue: step.costSpinsValue,
       mainValue: step.mainValue,
       bundleValue: step.bundleValue,
       barValue: step.barValue,
@@ -826,14 +881,14 @@ function finalizeRows(model: PromotionModel, aggregates: Aggregate[], runCount: 
 }
 
 function accumulateJourney(aggregates: Aggregate[], steps: StepResult[]) {
-  for (let index = 0; index < aggregates.length; index += 1) {
+  for (let index = 0; index < steps.length; index += 1) {
     const step = steps[index];
-    if (!step) {
-      continue;
-    }
-    const aggregate = aggregates[index];
+    const aggregate = aggregates[index] ?? createAggregate(step);
+    aggregates[index] = aggregate;
     aggregate.baselineSpinsCost += step.baselineSpinsCost;
     aggregate.approximateDollarCost += step.approximateDollarCost;
+    aggregate.costAmount += step.costAmount;
+    aggregate.costSpinsValue += step.costSpinsValue;
     aggregate.mainValue += step.mainValue;
     aggregate.bundleValue += step.bundleValue;
     aggregate.barValue += step.barValue;
@@ -851,6 +906,59 @@ function accumulateJourney(aggregates: Aggregate[], steps: StepResult[]) {
   }
 }
 
+function createAggregate(step: StepResult): Aggregate {
+  return {
+    purchaseIndex: step.purchaseIndex,
+    offerId: step.offerId,
+    group: step.group,
+    paymentType: step.paymentType,
+    baselineSpinsCost: 0,
+    approximateDollarCost: 0,
+    costAmount: 0,
+    costUnit: step.costUnit,
+    costType: step.costType,
+    costSpinsValue: 0,
+    mainValue: 0,
+    bundleValue: 0,
+    barValue: 0,
+    directEnergyMainValue: 0,
+    directEnergyBundleValue: 0,
+    directEnergyBarValue: 0,
+    milestonesCompleted: 0,
+    mainDistribution: new Map(),
+    bundleDistribution: new Map(),
+    barDistribution: new Map(),
+    rewardIndexSelection: new Map(),
+  };
+}
+
+function createEmptyAggregate(row: MainRow, purchaseIndex: number, model: PromotionModel): Aggregate {
+  const cost = resolveCost(row, model);
+  return {
+    purchaseIndex,
+    offerId: row.offerId,
+    group: row.group,
+    paymentType: row.paymentType,
+    baselineSpinsCost: 0,
+    approximateDollarCost: 0,
+    costAmount: 0,
+    costUnit: cost.costUnit,
+    costType: cost.costType,
+    costSpinsValue: 0,
+    mainValue: 0,
+    bundleValue: 0,
+    barValue: 0,
+    directEnergyMainValue: 0,
+    directEnergyBundleValue: 0,
+    directEnergyBarValue: 0,
+    milestonesCompleted: 0,
+    mainDistribution: new Map(),
+    bundleDistribution: new Map(),
+    barDistribution: new Map(),
+    rewardIndexSelection: new Map(),
+  };
+}
+
 function addRewards(target: Map<string, number>, rewards: RewardSlot[]) {
   for (const reward of rewards) {
     target.set(reward.reward, (target.get(reward.reward) ?? 0) + reward.amount);
@@ -861,6 +969,19 @@ function distributionEntries(map: Map<string, number>, runCount: number) {
   return [...map.entries()]
     .map(([reward, total]) => ({ reward, averageAmount: total / runCount }))
     .sort((left, right) => right.averageAmount - left.averageAmount || left.reward.localeCompare(right.reward));
+}
+
+function findPreviousAnchorIndex(
+  rows: Array<{ offerId: number }>,
+  currentIndex: number,
+  anchorOfferId: number,
+) {
+  for (let index = currentIndex; index >= 0; index -= 1) {
+    if (rows[index]?.offerId === anchorOfferId) {
+      return index;
+    }
+  }
+  return -1;
 }
 
 function buildRewardIndexDistribution(
@@ -888,6 +1009,7 @@ function buildRewardIndexDistribution(
       values[column.key] = picks / runCount;
     }
     return {
+      purchaseIndex: aggregate.purchaseIndex,
       offerId: aggregate.offerId,
       values,
     };
@@ -896,9 +1018,9 @@ function buildRewardIndexDistribution(
   return { columns, rows };
 }
 
-function buildGroupValues(model: PromotionModel, rows: OfferResultRow[]): GroupResultRow[] {
-  const grouped = new Map<number, OfferResultRow[]>();
-  for (const row of rows) {
+function buildGroupValues(model: PromotionModel): GroupResultRow[] {
+  const grouped = new Map<number, MainRow[]>();
+  for (const row of model.mainRows) {
     if (row.group === null) {
       continue;
     }
@@ -907,19 +1029,30 @@ function buildGroupValues(model: PromotionModel, rows: OfferResultRow[]): GroupR
 
   const result: GroupResultRow[] = [];
   for (const [group, groupRows] of [...grouped.entries()].sort((a, b) => a[0] - b[0])) {
-    const totalCost = groupRows.reduce((sum, row) => sum + row.approximateDollarCost, 0);
-    const totalMainValue = groupRows.reduce((sum, row) => sum + row.mainValue, 0);
-    const totalBundleValue = groupRows.reduce((sum, row) => sum + row.bundleValue, 0);
-    const totalBarValue = groupRows.reduce((sum, row) => sum + row.barValue, 0);
+    const costs = groupRows.map((row) => resolveCost(row, model));
+    const totalCost = costs.reduce((sum, cost) => sum + cost.costAmount, 0);
+    const totalCostSpinsValue = costs.reduce((sum, cost) => sum + cost.costSpinsValue, 0);
+    const totalApproximateDollarCost = costs.reduce((sum, cost) => sum + cost.approximateDollarCost, 0);
+    const hasResourceCost = costs.some((cost) => cost.costType === "resource");
+    const hasDollarCost = costs.some((cost) => cost.costType === "dollar");
+    const costUnits = [...new Set(costs.map((cost) => cost.costUnit))];
+    const totalCostUnit = costUnits.length === 1 ? costUnits[0] : "mixed";
+    const totalMainValue = groupRows.reduce((sum, row) => sum + rewardValue(row.rewards, model.rewardValues), 0);
+    const totalBundleValue = 0;
+    const totalBarValue = 0;
     const totalDirectEnergySpins = groupRows.reduce(
-      (sum, row) => sum + row.directEnergyMainValue + row.directEnergyBundleValue,
+      (sum, row) => sum + rewardDirectEnergyValue(row.rewards, model.rewardValues),
       0,
     );
     const totalSpinsNoBar = totalMainValue + totalBundleValue;
     const totalSpinsWithBar = totalSpinsNoBar + totalBarValue;
     const totalOtherSpins = totalSpinsNoBar - totalDirectEnergySpins;
     const baselineAtGroupCost =
-      totalCost > 0 ? nearestPricePoint(model.pricePoints, totalCost, "price")?.totalValue ?? 0 : 0;
+      hasResourceCost && !hasDollarCost
+        ? totalCostSpinsValue
+        : totalApproximateDollarCost > 0
+          ? nearestPricePoint(model.pricePoints, totalApproximateDollarCost, "price")?.totalValue ?? 0
+          : totalCostSpinsValue;
     const buyAllCost = model.groupBuyAllCosts.get(group) ?? null;
     const baselineAtBuyAllCost =
       buyAllCost !== null && buyAllCost > 0
@@ -930,6 +1063,7 @@ function buildGroupValues(model: PromotionModel, rows: OfferResultRow[]): GroupR
       group,
       offerCount: groupRows.length,
       totalCost,
+      totalCostUnit,
       totalMainValue,
       totalBundleValue,
       totalBarValue,

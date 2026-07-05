@@ -155,10 +155,11 @@ function buildExportRows(
 
   rows.push(["Offer ID results"]);
   rows.push([
+    "Purchase",
     "Offer ID",
     "Payment",
-    "Cost ($)",
-    "Cumulative Cost ($)",
+    "Cost",
+    "Cumulative Cost",
     "Main Rewards Value",
     "Bundle Rewards Value",
     "Progress Bar Rewards Value",
@@ -174,20 +175,22 @@ function buildExportRows(
     "Avg Milestones",
   ]);
 
-  let cumulativeCost = 0;
+  const cumulativeCostByUnit = new Map<string, number>();
   let cumulativeDirect = 0;
   let cumulativeOther = 0;
   for (const row of result.rows) {
     const direct = row.directEnergyMainValue + row.directEnergyBundleValue;
     const other = row.mainValue + row.bundleValue - direct;
-    cumulativeCost += row.approximateDollarCost;
+    const cumulativeDisplayCost = (cumulativeCostByUnit.get(row.costUnit) ?? 0) + row.costAmount;
+    cumulativeCostByUnit.set(row.costUnit, cumulativeDisplayCost);
     cumulativeDirect += direct;
     cumulativeOther += other;
     rows.push([
+      row.purchaseIndex,
       row.offerId,
       row.paymentType,
-      round(row.approximateDollarCost),
-      round(cumulativeCost),
+      formatExportCost(row.costAmount, row.costUnit),
+      formatExportCost(cumulativeDisplayCost, row.costUnit),
       round(row.mainValue),
       round(row.bundleValue),
       round(row.barValue),
@@ -207,11 +210,13 @@ function buildExportRows(
 
   rows.push(["Rewards Distribution per Offer ID"]);
   rows.push([
+    "Purchase",
     "Offer ID",
     ...result.rewardIndexDistribution.columns.map((column) => column.label),
   ]);
   for (const distRow of result.rewardIndexDistribution.rows) {
     rows.push([
+      distRow.purchaseIndex,
       distRow.offerId,
       ...result.rewardIndexDistribution.columns.map((column) =>
         round((distRow.values[column.key] ?? 0) * 100),
@@ -224,6 +229,13 @@ function buildExportRows(
 
 function round(value: number) {
   return Number(value.toFixed(4));
+}
+
+function formatExportCost(value: number, unit: string) {
+  if (unit === "$") {
+    return round(value);
+  }
+  return `${round(value)} ${unit}`;
 }
 
 function safeRatio(value: number | null) {
