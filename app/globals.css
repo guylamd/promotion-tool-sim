@@ -476,8 +476,10 @@ html.theme-dark .themeSwitchThumb::before {
 
 .resultsTable th,
 .resultsTable td {
-  padding: 14px 14px;
+  padding: 9px 10px;
   border-bottom: 1px solid rgba(25, 32, 43, 0.07);
+  font-size: 0.84rem;
+  line-height: 1.28;
   text-align: left;
   vertical-align: top;
   background-clip: padding-box;
@@ -489,10 +491,108 @@ html.theme-dark .themeSwitchThumb::before {
   z-index: 3;
   background: var(--card);
   box-shadow: inset 0 -1px 0 rgba(25, 32, 43, 0.08);
-  font-size: 0.82rem;
+  font-size: 0.72rem;
   color: var(--muted);
   letter-spacing: 0.02em;
   text-transform: uppercase;
+}
+
+.offerResultsShell {
+  display: grid;
+}
+
+.tableToolbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 24px 12px;
+}
+
+.compactField {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.compactSelect {
+  min-width: 190px;
+  padding: 7px 28px 7px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--card-strong);
+  color: var(--text);
+  font-size: 0.82rem;
+}
+
+.offerResultsTable .colPurchase {
+  min-width: 112px;
+  width: 112px;
+}
+
+.offerResultsTable .colOfferId {
+  min-width: 78px;
+  width: 78px;
+}
+
+.offerResultsTable .colPayment {
+  min-width: 96px;
+  width: 96px;
+}
+
+.offerResultsTable .colRollup {
+  min-width: 132px;
+  width: 132px;
+}
+
+.offerResultsTable .colCost {
+  min-width: 110px;
+  width: 110px;
+}
+
+.offerResultsTable .colCumulativeCost {
+  min-width: 132px;
+  width: 132px;
+}
+
+.offerResultsTable .frozenColumn {
+  position: sticky;
+  z-index: 4;
+  background: var(--card);
+  box-shadow: inset -1px 0 0 rgba(25, 32, 43, 0.1);
+}
+
+.offerResultsTable th.frozenColumn {
+  z-index: 8;
+}
+
+.offerResultsTable .frozenColumn0 {
+  left: 0;
+}
+
+.offerResultsTable .frozenColumn1 {
+  left: 112px;
+}
+
+.offerResultsTable .frozenColumn2 {
+  left: 190px;
+}
+
+.offerResultsTable .frozenColumn3 {
+  left: 286px;
+}
+
+.offerResultsTable .frozenColumn4 {
+  left: 418px;
+}
+
+.offerResultsTable .frozenColumn5 {
+  left: 528px;
+}
+
+.rolledOfferRow .frozenColumn {
+  background: color-mix(in srgb, var(--card) 94%, var(--accent) 6%);
 }
 
 .offerCell {
@@ -547,7 +647,7 @@ html.theme-dark .themeSwitchThumb::before {
 
 .mono {
   font-family: "Consolas", "SFMono-Regular", monospace;
-  font-size: 0.94rem;
+  font-size: 0.84rem;
 }
 
 .pill {

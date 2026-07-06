@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import type { ReactNode } from "react";
 
 type OfferResultsRow = {
   purchaseIndex: number;
@@ -25,6 +26,13 @@ type OfferResultsRow = {
   cumulativeSlopeWithoutBar: number | null;
   cumulativeSlopeWithBar: number | null;
   averageBarMilestonesCompleted: number;
+};
+
+type OfferResultsColumn = {
+  key: string;
+  header: string;
+  className?: string;
+  render: (row: OfferResultsRow & { isRolledChild: boolean }) => ReactNode;
 };
 
 export function OfferResultsTable({ rows }: { rows: OfferResultsRow[] }) {
@@ -86,102 +94,211 @@ export function OfferResultsTable({ rows }: { rows: OfferResultsRow[] }) {
     });
   }
 
-  return (
-    <table className="resultsTable">
-      <thead>
-        <tr>
-          <th>Purchase</th>
-          <th>Offer ID</th>
-          <th>Payment</th>
-          <th>Rollup</th>
-          <th>Cost</th>
-          <th>Cumulative cost</th>
-          <th>Main Rewards Value</th>
-          <th>Bundle Rewards Value</th>
-          <th>Progress Bar Rewards Value</th>
-          <th>Direct Energy Spins Value</th>
-          <th>Other Rewards Spins Value</th>
-          <th>Cumulative Direct Energy Spins Value</th>
-          <th>Cumulative Other Rewards Spins Value</th>
-          <th>Cumulative Total Spins Value</th>
-          <th>Slope no bar</th>
-          <th>Slope with bar</th>
-          <th>Cumulative no bar</th>
-          <th>Cumulative with bar</th>
-          <th>Avg milestones</th>
-        </tr>
-      </thead>
-      <tbody>
-        {visibleRows.map((row) => {
-          const childCount = childRowsByAnchor.get(row.purchaseIndex)?.length ?? 0;
-          const isAnchor = row.rollsIntoPurchaseIndex === null;
-          const canToggle = isAnchor && childCount > 0;
-          const isExpanded = expandedAnchors.has(row.purchaseIndex);
+  const [frozenColumns, setFrozenColumns] = useState(2);
 
-          return (
-            <tr
-              key={row.purchaseIndex}
-              className={row.isRolledChild ? "rolledOfferRow" : undefined}
-            >
-              <td>
-                <div className="offerCell">
-                  {canToggle ? (
-                    <button
-                      type="button"
-                      className="offerToggle"
-                      onClick={() => toggleAnchor(row.purchaseIndex)}
-                      aria-expanded={isExpanded}
-                      aria-label={
-                        isExpanded
-                          ? `Hide rolled offers for purchase ${row.purchaseIndex}`
-                          : `Show rolled offers for purchase ${row.purchaseIndex}`
-                      }
-                    >
-                      <span className="mono">{isExpanded ? "-" : "+"}</span>
-                    </button>
-                  ) : (
-                    <span className="offerToggleSpacer" aria-hidden="true" />
-                  )}
-                  <span
-                    className={`mono ${row.isRolledChild ? "rolledOfferLabel" : ""}`}
-                  >
-                    {row.purchaseIndex}
-                  </span>
-                  {canToggle ? (
-                    <span className="offerToggleCount muted">{childCount}</span>
-                  ) : null}
-                </div>
-              </td>
-              <td className="mono">{row.offerId}</td>
-              <td>{row.paymentType}</td>
-              <td>
-                {row.rollsIntoOfferId ? (
-                  <span className="muted">Rolls into {row.rollsIntoOfferId}</span>
-                ) : (
-                  <span className="pill">Anchor</span>
-                )}
-              </td>
-              <td>{formatCost(row.costAmount, row.costUnit)}</td>
-              <td>{formatCost(row.cumulativeCostAmount, row.costUnit)}</td>
-              <td>{formatNumber(row.mainValue)}</td>
-              <td>{formatNumber(row.bundleValue)}</td>
-              <td>{formatNumber(row.barValue)}</td>
-              <td>{formatNumber(row.currentDirect)}</td>
-              <td>{formatNumber(row.currentOther)}</td>
-              <td>{formatNumber(row.cumulativeDirect)}</td>
-              <td>{formatNumber(row.cumulativeOther)}</td>
-              <td>{formatNumber(row.cumulativeTotalSpinsValue)}</td>
-              <td>{formatRatio(row.incrementalSlopeWithoutBar)}</td>
-              <td>{formatRatio(row.incrementalSlopeWithBar)}</td>
-              <td>{formatRatio(row.cumulativeSlopeWithoutBar)}</td>
-              <td>{formatRatio(row.cumulativeSlopeWithBar)}</td>
-              <td>{row.averageBarMilestonesCompleted.toFixed(2)}</td>
+  const columns: OfferResultsColumn[] = [
+    {
+      key: "purchase",
+      header: "Purchase",
+      className: "colPurchase",
+      render: (row) => {
+        const childCount = childRowsByAnchor.get(row.purchaseIndex)?.length ?? 0;
+        const isAnchor = row.rollsIntoPurchaseIndex === null;
+        const canToggle = isAnchor && childCount > 0;
+        const isExpanded = expandedAnchors.has(row.purchaseIndex);
+
+        return (
+          <div className="offerCell">
+            {canToggle ? (
+              <button
+                type="button"
+                className="offerToggle"
+                onClick={() => toggleAnchor(row.purchaseIndex)}
+                aria-expanded={isExpanded}
+                aria-label={
+                  isExpanded
+                    ? `Hide rolled offers for purchase ${row.purchaseIndex}`
+                    : `Show rolled offers for purchase ${row.purchaseIndex}`
+                }
+              >
+                <span className="mono">{isExpanded ? "-" : "+"}</span>
+              </button>
+            ) : (
+              <span className="offerToggleSpacer" aria-hidden="true" />
+            )}
+            <span className={`mono ${row.isRolledChild ? "rolledOfferLabel" : ""}`}>
+              {row.purchaseIndex}
+            </span>
+            {canToggle ? <span className="offerToggleCount muted">{childCount}</span> : null}
+          </div>
+        );
+      },
+    },
+    {
+      key: "offerId",
+      header: "Offer ID",
+      className: "colOfferId",
+      render: (row) => <span className="mono">{row.offerId}</span>,
+    },
+    {
+      key: "payment",
+      header: "Payment",
+      className: "colPayment",
+      render: (row) => row.paymentType,
+    },
+    {
+      key: "rollup",
+      header: "Rollup",
+      className: "colRollup",
+      render: (row) =>
+        row.rollsIntoOfferId ? (
+          <span className="muted">Rolls into {row.rollsIntoOfferId}</span>
+        ) : (
+          <span className="pill">Anchor</span>
+        ),
+    },
+    {
+      key: "cost",
+      header: "Cost",
+      className: "colCost",
+      render: (row) => formatCost(row.costAmount, row.costUnit),
+    },
+    {
+      key: "cumulativeCost",
+      header: "Cumulative cost",
+      className: "colCumulativeCost",
+      render: (row) => formatCost(row.cumulativeCostAmount, row.costUnit),
+    },
+    {
+      key: "mainValue",
+      header: "Main Rewards Value",
+      render: (row) => formatNumber(row.mainValue),
+    },
+    {
+      key: "bundleValue",
+      header: "Bundle Rewards Value",
+      render: (row) => formatNumber(row.bundleValue),
+    },
+    {
+      key: "barValue",
+      header: "Progress Bar Rewards Value",
+      render: (row) => formatNumber(row.barValue),
+    },
+    {
+      key: "directValue",
+      header: "Direct Energy Spins Value",
+      render: (row) => formatNumber(row.currentDirect),
+    },
+    {
+      key: "otherValue",
+      header: "Other Rewards Spins Value",
+      render: (row) => formatNumber(row.currentOther),
+    },
+    {
+      key: "cumulativeDirect",
+      header: "Cumulative Direct Energy Spins Value",
+      render: (row) => formatNumber(row.cumulativeDirect),
+    },
+    {
+      key: "cumulativeOther",
+      header: "Cumulative Other Rewards Spins Value",
+      render: (row) => formatNumber(row.cumulativeOther),
+    },
+    {
+      key: "cumulativeTotal",
+      header: "Cumulative Total Spins Value",
+      render: (row) => formatNumber(row.cumulativeTotalSpinsValue),
+    },
+    {
+      key: "slopeNoBar",
+      header: "Slope no bar",
+      render: (row) => formatRatio(row.incrementalSlopeWithoutBar),
+    },
+    {
+      key: "slopeWithBar",
+      header: "Slope with bar",
+      render: (row) => formatRatio(row.incrementalSlopeWithBar),
+    },
+    {
+      key: "cumulativeNoBar",
+      header: "Cumulative no bar",
+      render: (row) => formatRatio(row.cumulativeSlopeWithoutBar),
+    },
+    {
+      key: "cumulativeWithBar",
+      header: "Cumulative with bar",
+      render: (row) => formatRatio(row.cumulativeSlopeWithBar),
+    },
+    {
+      key: "averageMilestones",
+      header: "Avg milestones",
+      render: (row) => row.averageBarMilestonesCompleted.toFixed(2),
+    },
+  ];
+
+  return (
+    <div className="offerResultsShell">
+      <div className="tableToolbar">
+        <label className="compactField">
+          <span>Freeze columns</span>
+          <select
+            className="compactSelect"
+            value={frozenColumns}
+            onChange={(event) => setFrozenColumns(Number(event.target.value))}
+          >
+            <option value={0}>None</option>
+            <option value={1}>Purchase</option>
+            <option value={2}>Purchase + Offer ID</option>
+            <option value={3}>Through Payment</option>
+            <option value={4}>Through Rollup</option>
+            <option value={5}>Through Cost</option>
+            <option value={6}>Through Cumulative Cost</option>
+          </select>
+        </label>
+      </div>
+      <div className="tableWrap offerResultsScroll">
+        <table className="resultsTable offerResultsTable">
+          <thead>
+            <tr>
+              {columns.map((column, columnIndex) => (
+                <th
+                  key={column.key}
+                  className={cellClassName(column, columnIndex, frozenColumns)}
+                >
+                  {column.header}
+                </th>
+              ))}
             </tr>
-          );
-        })}
-      </tbody>
-    </table>
+          </thead>
+          <tbody>
+            {visibleRows.map((row) => (
+              <tr
+                key={row.purchaseIndex}
+                className={row.isRolledChild ? "rolledOfferRow" : undefined}
+              >
+                {columns.map((column, columnIndex) => (
+                  <td
+                    key={`${row.purchaseIndex}-${column.key}`}
+                    className={cellClassName(column, columnIndex, frozenColumns)}
+                  >
+                    {column.render(row)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
+}
+
+function cellClassName(column: OfferResultsColumn, columnIndex: number, frozenColumns: number) {
+  const classes = [column.className];
+  if (columnIndex < frozenColumns) {
+    classes.push("frozenColumn", `frozenColumn${columnIndex}`);
+  }
+  return classes.filter(Boolean).join(" ");
 }
 
 function formatNumber(value: number) {

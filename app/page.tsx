@@ -430,9 +430,7 @@ export default async function Page({ searchParams }: PageProps) {
                       value columns shown as row-level outcomes for that offer.
                     </p>
                   </div>
-                  <div className="tableWrap">
-                    <OfferResultsTable rows={rowsWithCumulativeValues} />
-                  </div>
+                  <OfferResultsTable rows={rowsWithCumulativeValues} />
                 </section>
 
                 <section className="tableCard">
